@@ -1,12 +1,23 @@
 package io.legado.app.plugin
 
 import android.content.Context
+import io.legado.app.plugin.jread.JReadEnginePlugin
+import io.legado.app.plugin.jread.JReadPluginStore
+import io.legado.app.plugin.jread.JReadVoiceDirectory
 
 /**
- * 开源构建（oss flavor）插件引导：不注册任何专有插件。
- * 主代码以空注册表正常运行：百度TTS不在引擎列表出现，恢复的 bdtts 配置会明示回退，
- * AI选角在发音人目录缺失时自动降级，插件代码完全不参与编译与打包。
+ * 自用构建（app flavor）插件引导。
+ *
+ * 目前注册两项：
+ * - 「Z阅读插件引擎」朗读引擎（一个引擎承载全部 Z·阅读 语音插件，可导入/更新）；
+ * - AI 选角发音人目录（把该引擎的音色并入全书选角候选）。
+ * 开源构建不编译本源集，主代码在空注册表下正常运行。
  */
 object AppPlugins {
-    fun init(context: Context) = Unit
+
+    fun init(context: Context) {
+        JReadPluginStore.init(context)
+        ReadAloudEngines.register(JReadEnginePlugin)
+        TtsVoiceDirectories.register(JReadVoiceDirectory)
+    }
 }
