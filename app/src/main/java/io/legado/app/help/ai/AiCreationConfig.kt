@@ -173,7 +173,7 @@ object AiCreationConfig {
      * 直接把 AI 下面所有 JSON 配置全部炸回出厂（自加的供应商整家删除）。
      * 没有破坏性更新的版本把它置 false，升级时只把内置回出厂，自加的不动。
      */
-    const val NUKE_CUSTOM_AI_CONFIG_ON_UPGRADE = true
+    const val NUKE_CUSTOM_AI_CONFIG_ON_UPGRADE = false
 
     /**
      * 版本号一变就按开关处理，不另维护升级号：完整比对版本名加版本号，
@@ -184,34 +184,16 @@ object AiCreationConfig {
      * 之前先删后读，把老用户全当成了新装，这是 bug，已改。
      * 每次启动都跑，便宜的几次读值比对。
      */
+    /**
+     * 用户明确要求：禁止任何「装新包就重置 AI 配置」的行为。
+     *
+     * 原实现每次版本号变化都会执行 [nukeAllAiJsonConfigs]（删供应商/模型/模板）或
+     * [forceRestoreFactoryDefaults]，自用构建每编一版 versionCode 就变，等于每次升级都清空。
+     * 现在只记录版本记号，**不删除、不恢复出厂、不做任何存量配置改写**。
+     */
     fun nukeOnAppVersionChange() {
         val currentTag = runCatching { appVersionTag() }.getOrNull() ?: return
-        val currentCode = currentTag.substringAfterLast('|', "").toLongOrNull()
-        val lastTag = appCtx.getPrefString(PreferKey.aiNukeAppVersion, "").orEmpty()
-        //老记号（纯数字版本号）：先读出来比对，再删，不跟新记号打架
-        val legacyCode = appCtx.getPrefLong("aiNukeVersionCode", 0L)
         appCtx.removePref("aiNukeVersionCode")
-        if (lastTag.isBlank() && legacyCode == 0L) {
-            appCtx.putPrefString(PreferKey.aiNukeAppVersion, currentTag)
-            return
-        }
-        val changed = if (lastTag.isNotBlank()) {
-            lastTag != currentTag
-        } else {
-            currentCode == null || legacyCode != currentCode
-        }
-        if (!changed) {
-            //记号对上了只是格式老，把新记号对齐，不炸
-            appCtx.putPrefString(PreferKey.aiNukeAppVersion, currentTag)
-            return
-        }
-        if (NUKE_CUSTOM_AI_CONFIG_ON_UPGRADE) {
-            nukeAllAiJsonConfigs()
-        } else {
-            forceRestoreFactoryDefaults()
-        }
-        sanitizeStoredJsons()
-        AiStructuredRequestTemplate.migrateTemplateOwnership()
         appCtx.putPrefString(PreferKey.aiNukeAppVersion, currentTag)
     }
 

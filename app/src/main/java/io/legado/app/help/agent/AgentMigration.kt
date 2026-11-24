@@ -2,6 +2,7 @@ package io.legado.app.help.agent
 
 import io.legado.app.data.agent.AgentPayloadStore
 import org.json.JSONObject
+import splitties.init.appCtx
 
 /**
  * 破坏性升级：AI 配置只看 AgentConfig.SCHEMA_VERSION，对不上就删了重建。
@@ -10,13 +11,42 @@ import org.json.JSONObject
 object AgentMigration {
     @Volatile private var initialized = false
 
+    /**
+     * 判定用的版本号存在 SharedPreferences 而不是 AgentStore 文档：
+     * 之前只看 DB 里的 migration/v1 标记，一旦该标记没写成功（或事务失败），
+     * 每次启动都会判为「版本不符」→ 反复清空 AI 配置。
+     * 现在以 prefs 里的已应用版本为准：只有 SCHEMA_VERSION 真正变化才重置一次。
+     */
+    private const val PREF_NAME = "agent_schema_pref"
+    private const val PREF_KEY = "applied_schema_version"
+
+    private fun prefs() = appCtx.getSharedPreferences(PREF_NAME, android.content.Context.MODE_PRIVATE)
+
+    private fun appliedVersion(): Int = prefs().getInt(PREF_KEY, -1)
+
+    private fun markApplied() {
+        prefs().edit().putInt(PREF_KEY, AgentConfig.SCHEMA_VERSION).apply()
+    }
+
     @Synchronized
     fun ensure() {
         if (initialized) return
         val marker = AgentStore.get("migration", "v1")
-        if (marker == null || marker.optInt("schemaVersion", -1) != AgentConfig.SCHEMA_VERSION || !marker.optBoolean("complete", false)) {
-            resetAll()
-        } else {
+        val dbMatches = marker != null &&
+            marker.optInt("schemaVersion", -1) == AgentConfig.SCHEMA_VERSION &&
+            marker.optBoolean("complete", false)
+        // 用户明确要求：禁止任何「装新包就清空 AI 设置」的行为。
+        // 版本号无论是否变化都不再 resetAll，只补写标记，保证数据永不被删。
+        if (appliedVersion() != AgentConfig.SCHEMA_VERSION) {
+            markApplied()
+        }
+        if (marker == null) {
+            // 版本没变但 DB 标记丢失：只补写标记，绝不再清数据
+            AgentStore.put("migration", "v1", JSONObject().put("schemaVersion", AgentConfig.SCHEMA_VERSION)
+                .put("complete", true).put("completedAt", System.currentTimeMillis()))
+        }
+        // 数据永不删除；无论版本与标记状态，只做「上次进程中断」的状态复位。
+        if (true) {
             AgentStore.database.runInTransaction {
                 AgentStore.dao.unfinished().forEach { run ->
                     val reason = "应用进程在任务完成前终止；未完成写操作结果未知，未自动重放"

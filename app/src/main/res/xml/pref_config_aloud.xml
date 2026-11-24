@@ -2,6 +2,19 @@
 <androidx.preference.PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto">
 
+    <io.legado.app.lib.prefs.SwitchPreference
+        android:defaultValue="true"
+        android:key="readAloudRoleMark"
+        android:title="@string/read_aloud_role_mark_title"
+        android:summary="@string/read_aloud_role_mark_summary"
+        app:iconSpaceReserved="false" />
+
+    <io.legado.app.lib.prefs.Preference
+        android:key="read_aloud_log"
+        android:title="@string/read_aloud_log_title"
+        android:summary="@string/read_aloud_log_summary"
+        app:iconSpaceReserved="false" />
+
     <io.legado.app.lib.prefs.Preference
         android:key="plugin_engine_manage"
         android:title="@string/plugin_engine_manage_title"

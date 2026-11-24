@@ -2,7 +2,7 @@ package io.legado.app.plugin.jread
 
 import com.script.rhino.RhinoContext
 import io.legado.app.constant.AppLog
-import io.legado.app.help.http.okHttpClient
+import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.Response
 import okhttp3.WebSocket
@@ -46,7 +46,7 @@ internal class JReadWebSocket(
         val builder = Request.Builder().url(url)
         headers.forEach { (key, value) -> builder.header(key, value) }
         socket = runCatching {
-            okHttpClient.newWebSocket(builder.build(), listener)
+            wsClient.newWebSocket(builder.build(), listener)
         }.getOrElse {
             AppLog.put("JRead WebSocket 建连失败\n${it.localizedMessage}", it)
             closed = true
@@ -145,6 +145,15 @@ internal class JReadWebSocket(
     }
 
     companion object {
+        /** WS 用干净 client，避免全局拦截器消费 101 响应体。 */
+        private val wsClient: OkHttpClient by lazy {
+            OkHttpClient.Builder()
+                .connectTimeout(15, java.util.concurrent.TimeUnit.SECONDS)
+                .readTimeout(0, java.util.concurrent.TimeUnit.MILLISECONDS)
+                .pingInterval(20, java.util.concurrent.TimeUnit.SECONDS)
+                .build()
+        }
+
         /** 所有插件的 WS 事件串行在一条线程上执行，避免 Rhino 跨线程问题。 */
         private val executor = Executors.newSingleThreadExecutor { runnable ->
             Thread(runnable, "jread-ws").apply { isDaemon = true }

@@ -41,6 +41,7 @@ import android.view.animation.LinearInterpolator
 import android.widget.FrameLayout
 import android.widget.ImageView
 import android.widget.LinearLayout
+import android.widget.TextView
 import androidx.annotation.CallSuper
 import androidx.core.app.NotificationCompat
 import androidx.core.view.setPadding
@@ -207,6 +208,7 @@ abstract class BaseReadAloudService : BaseService(),
     private var floatingParams: WindowManager.LayoutParams? = null
     private var floatingView: View? = null
     private var floatingCoverView: ImageView? = null
+    private var floatingSpeakerView: TextView? = null
     private var floatingPlayPauseView: ImageView? = null
     private var floatingLoadingAnimator: ObjectAnimator? = null
     private var floatingCoverAnimator: ObjectAnimator? = null
@@ -495,6 +497,26 @@ abstract class BaseReadAloudService : BaseService(),
         applyReadAloudFloatingAvoidance()
     }
 
+    /**
+     * 当前段落说话人标签（如「秦守 · 沉稳青年」）。
+     * 由具体引擎覆写；返回 null 时浮动窗不显示该行，不占空间。
+     */
+    open fun currentSpeakerLabel(): String? = null
+
+    /** 点击说话人标签：默认无动作，引擎可覆写（例如打开角色/音色编辑）。 */
+    open fun onSpeakerLabelClick() = Unit
+
+    protected fun refreshFloatingSpeakerLabel() {
+        val view = floatingSpeakerView ?: return
+        val label = runCatching { currentSpeakerLabel() }.getOrNull()
+        if (label.isNullOrBlank()) {
+            view.visibility = View.GONE
+        } else {
+            view.text = label
+            view.visibility = View.VISIBLE
+        }
+    }
+
     private fun createReadAloudFloatingView(): View {
         val height = floatingHeight
         val coverSize = 40.dpToPx()
@@ -527,6 +549,21 @@ abstract class BaseReadAloudService : BaseService(),
             setOnClickListener { openReadAloudBook() }
         }
         container.addView(floatingCoverView, LinearLayout.LayoutParams(coverSize, coverSize))
+        floatingSpeakerView = TextView(this).apply {
+            setTextColor(Color.WHITE)
+            textSize = 11f
+            maxLines = 1
+            ellipsize = android.text.TextUtils.TruncateAt.END
+            visibility = View.GONE
+            setOnClickListener { onSpeakerLabelClick() }
+        }
+        container.addView(
+            floatingSpeakerView,
+            LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 0f).apply {
+                width = 96.dpToPx()
+                marginStart = 8.dpToPx()
+            }
+        )
         floatingPlayPauseView = ImageView(this).apply {
             setPadding(8.dpToPx())
             setColorFilter(Color.WHITE)
@@ -574,6 +611,7 @@ abstract class BaseReadAloudService : BaseService(),
     }
 
     private fun updateReadAloudFloatingCover() {
+        refreshFloatingSpeakerLabel()
         if (!isMainThread()) {
             lifecycleScope.launch(Main) {
                 updateReadAloudFloatingCover()

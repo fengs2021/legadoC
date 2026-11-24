@@ -19,6 +19,7 @@ import io.legado.app.constant.PreferKey
 import io.legado.app.data.appDb
 import io.legado.app.help.IntentHelp
 import io.legado.app.help.config.AppConfig
+import io.legado.app.help.tts.ReadAloudDebugLog
 import io.legado.app.lib.dialogs.showDecimalInputDialog
 import io.legado.app.lib.dialogs.showIntegerInputDialog
 import io.legado.app.lib.permission.Permissions
@@ -88,6 +89,7 @@ class ReadAloudConfigDialog : BasePrefDialogFragment() {
 
         override fun onCreatePreferences(savedInstanceState: Bundle?, rootKey: String?) {
             addPreferencesFromResource(R.xml.pref_config_aloud)
+            initReadAloudLogEntry()
             initPluginEngineEntry()
             upSpeakEngineSummary()
             initPhoneCallPausePreference()
@@ -98,6 +100,44 @@ class ReadAloudConfigDialog : BasePrefDialogFragment() {
             upProgressPollIntervalSummary()
             upBluetoothReadAloudSkipIntervalSummary()
             upPlaybackPanelDurationSummary()
+        }
+
+        /** 朗读日志：查看/复制最近合成与播放过程，排查引擎失败的原因。 */
+        private fun initReadAloudLogEntry() {
+            val preference = findPreference<Preference>("read_aloud_log") ?: return
+            preference.summary = getString(R.string.read_aloud_log_summary) +
+                "（当前 ${ReadAloudDebugLog.size()} 条）"
+            preference.setOnPreferenceClickListener {
+                showReadAloudLog()
+                true
+            }
+        }
+
+        private fun showReadAloudLog() {
+            val context = requireContext()
+            val textView = android.widget.TextView(context).apply {
+                text = ReadAloudDebugLog.dump()
+                setTextIsSelectable(true)
+                textSize = 10f
+                typeface = android.graphics.Typeface.MONOSPACE
+                setPadding(24, 24, 24, 24)
+            }
+            val scroll = android.widget.ScrollView(context).apply { addView(textView) }
+            androidx.appcompat.app.AlertDialog.Builder(context)
+                .setTitle("朗读日志")
+                .setView(scroll)
+                .setPositiveButton("复制全部") { _, _ ->
+                    val clipboard = context.getSystemService(android.content.Context.CLIPBOARD_SERVICE)
+                        as android.content.ClipboardManager
+                    clipboard.setPrimaryClip(
+                        android.content.ClipData.newPlainText("readAloudLog", ReadAloudDebugLog.dump())
+                    )
+                }
+                .setNeutralButton("清空") { _, _ ->
+                    ReadAloudDebugLog.clear()
+                }
+                .setNegativeButton("关闭", null)
+                .show()
         }
 
         /**

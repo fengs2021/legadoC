@@ -1,23 +1,26 @@
 package io.legado.app.plugin
 
 import android.content.Context
-import io.legado.app.plugin.jread.JReadEnginePlugin
+import io.legado.app.plugin.jread.DoubaoEnginePlugin
+import io.legado.app.help.tts.TtsVoicePreviewers
+import io.legado.app.plugin.jread.DoubaoVoiceDirectory
+import io.legado.app.plugin.jread.DoubaoVoicePreviewer
 import io.legado.app.plugin.jread.JReadPluginStore
-import io.legado.app.plugin.jread.JReadVoiceDirectory
 
 /**
  * 自用构建（app flavor）插件引导。
  *
- * 目前注册两项：
- * - 「Z阅读插件引擎」朗读引擎（一个引擎承载全部 Z·阅读 语音插件，可导入/更新）；
- * - AI 选角发音人目录（把该引擎的音色并入全书选角候选）。
+ * 注册「豆包语音（内置）」朗读引擎：合成走原生 WebSocket 实现（DoubaoTtsClient），
+ * 音色表内置 374 个，AI 选角通过发音人目录直接可读。
+ * Z阅读 插件引擎（jread）保留代码但不再注册，避免两个引擎争同一套设置。
  * 开源构建不编译本源集，主代码在空注册表下正常运行。
  */
 object AppPlugins {
 
     fun init(context: Context) {
         JReadPluginStore.init(context)
-        ReadAloudEngines.register(JReadEnginePlugin)
-        TtsVoiceDirectories.register(JReadVoiceDirectory)
+        ReadAloudEngines.register(DoubaoEnginePlugin)
+        TtsVoiceDirectories.register(DoubaoVoiceDirectory)
+        TtsVoicePreviewers.register(DoubaoVoicePreviewer)
     }
 }
