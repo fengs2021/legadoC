@@ -107,7 +107,7 @@ object JReadPluginStore {
                     added++
                 } else {
                     val existing = result[index]
-                    if (plugin.version < existing.version) {
+                    if (compareVersion(plugin.version, existing.version) < 0) {
                         rejected += "${plugin.name}(v${plugin.version} < v${existing.version})"
                     } else {
                         result[index] = plugin.copy(
@@ -132,6 +132,18 @@ object JReadPluginStore {
     }
 
     data class ImportResult(val success: Boolean, val message: String)
+
+    /** 版本串比较：取数字段逐个比较，非数字后缀（如 -jread1）不参与。 */
+    private fun compareVersion(left: String, right: String): Int {
+        val a = left.split('.', '-').mapNotNull { it.toIntOrNull() }
+        val b = right.split('.', '-').mapNotNull { it.toIntOrNull() }
+        for (index in 0 until maxOf(a.size, b.size)) {
+            val x = a.getOrElse(index) { 0 }
+            val y = b.getOrElse(index) { 0 }
+            if (x != y) return x.compareTo(y)
+        }
+        return 0
+    }
 
     private fun mutate(block: (List<JReadPlugin>) -> List<JReadPlugin>) {
         synchronized(lock) {
@@ -178,7 +190,13 @@ object JReadPluginStore {
                     if (!item.isJsonObject) return@mapNotNull null
                     val obj = item.asJsonObject
                     if (!obj.has("code") || !obj.has("pluginId")) return@mapNotNull null
-                    gson.fromJson(obj, JReadPlugin::class.java)
+                    runCatching { gson.fromJson(obj, JReadPlugin::class.java) }
+                        .onFailure {
+                            AppLog.put(
+                                "JRead 插件解析失败（已跳过）：pluginId 见下\n${it.localizedMessage}"
+                            )
+                        }
+                        .getOrNull()
                 }
             } else {
                 val obj = element.asJsonObject

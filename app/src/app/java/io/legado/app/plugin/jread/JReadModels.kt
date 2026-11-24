@@ -14,7 +14,8 @@ data class JReadPlugin(
     val pluginId: String,
     val name: String,
     val author: String? = null,
-    val version: Int = 1,
+    /** 插件包里的 version 是字符串（如 "14-jread1"），按 Int 解析会让整包反序列化失败。 */
+    val version: String = "1",
     val iconUrl: String? = null,
     val code: String,
     val defVars: Map<String, JReadVarSpec> = emptyMap(),
@@ -57,7 +58,11 @@ data class JReadVoiceEntry(
     val pluginName: String,
     val id: String,
     val name: String,
-    val locale: String
+    val locale: String,
+    /** 插件自带的性别标记（Male/Female 等），没有则为 null，交由上层推断。 */
+    val gender: String? = null,
+    /** 音色所属分组（Z·阅读 用分组当 locale 参数，如「女声」「方言」）。 */
+    val group: String? = null
 ) {
     /** 对 legadoC 全局唯一的音色 id：插件内置引擎 + 音色的复合编码，与 AI 选角绑定格式一致。 */
     val globalId: String get() = "$pluginKey\n$id"

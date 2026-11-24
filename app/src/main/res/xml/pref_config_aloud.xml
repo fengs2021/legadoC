@@ -2,6 +2,12 @@
 <androidx.preference.PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto">
 
+    <io.legado.app.lib.prefs.Preference
+        android:key="plugin_engine_manage"
+        android:title="@string/plugin_engine_manage_title"
+        android:summary="@string/plugin_engine_manage_summary"
+        app:iconSpaceReserved="false" />
+
     <io.legado.app.lib.prefs.PreferenceCategory
         android:title="@string/aloud_config"
         app:allowDividerAbove="false"

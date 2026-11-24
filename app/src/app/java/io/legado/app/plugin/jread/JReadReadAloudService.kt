@@ -169,7 +169,7 @@ class JReadReadAloudService : BaseReadAloudService(), Player.Listener {
     /** 位置推进：按已播放时长换算段内字数，与其他引擎的进度语义一致。 */
     private fun trackProgress(text: String) {
         playIndexJob?.cancel()
-        playIndexJob = scope.launch(Dispatchers.Default) {
+        playIndexJob = scope.launch(Dispatchers.Main) {
             var lastCharDurationMs = 100L
             while (true) {
                 val duration = exoPlayer.duration
@@ -181,9 +181,7 @@ class JReadReadAloudService : BaseReadAloudService(), Player.Listener {
                 } else {
                     (position / charDuration.coerceAtLeast(1L)).toInt()
                 }
-                withContext(Dispatchers.Main) {
-                    upTtsProgress(readAloudNumber + offset + 1)
-                }
+                upTtsProgress(readAloudNumber + offset + 1)
                 kotlinx.coroutines.delay(charDuration.coerceAtLeast(20L))
                 if (exoPlayer.playbackState == Player.STATE_ENDED) break
             }

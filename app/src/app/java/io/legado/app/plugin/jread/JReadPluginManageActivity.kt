@@ -65,7 +65,7 @@ class JReadPluginManageActivity : AppCompatActivity() {
             render()
         }
         listView.setOnItemLongClickListener { _, _, position, _ ->
-            val plugin = JReadPluginStore.all().getOrNull(position) ?: return@setOnItemLongClickListener
+            val plugin = JReadPluginStore.all().getOrNull(position) ?: return@setOnItemLongClickListener false
             showActions(plugin)
             true
         }

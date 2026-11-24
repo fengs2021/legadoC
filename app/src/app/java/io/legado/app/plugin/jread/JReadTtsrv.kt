@@ -191,7 +191,7 @@ internal object JReadTtsrv {
         fn("isLocalSoundPlugin") { false }
         fn("extractLocalSoundName") { args ->
             val raw = Context.toString(args.getOrNull(0) ?: "")
-            Regex("\[\[sound:([^]]+)]]").find(raw)?.groupValues?.getOrNull(1) ?: ""
+            Regex("""\[\[sound:([^]]+)]]""").find(raw)?.groupValues?.getOrNull(1) ?: ""
         }
         fn("floorMod") { args -> Math.floorMod(Context.toNumber(args.getOrNull(0)).toInt(), Context.toNumber(args.getOrNull(1)).toInt()) }
 
@@ -346,14 +346,14 @@ internal object JReadTtsrv {
         null -> ByteArray(0)
         is ByteArray -> value
         is org.mozilla.javascript.NativeArray -> {
-            val length = value.length
+            val length = value.length.toInt()
             ByteArray(length) { index ->
-                Context.toNumber(ScriptableObject.getProperty(value, index)).toByte()
+                Context.toNumber(ScriptableObject.getProperty(value, index)).toInt().toByte()
             }
         }
         is org.mozilla.javascript.NativeJavaArray -> {
-            val array = value.array
-            if (array is ByteArray) array else ByteArray(0)
+            val unwrapped = value.unwrap()
+            if (unwrapped is ByteArray) unwrapped else ByteArray(0)
         }
         is java.io.InputStream -> value.use { it.readBytes() }
         is String -> value.toByteArray(Charsets.UTF_8)
@@ -362,7 +362,7 @@ internal object JReadTtsrv {
             val length = array?.get("length", array) as? Number
             if (array != null && length != null) {
                 ByteArray(length.toInt()) { index ->
-                    Context.toNumber(ScriptableObject.getProperty(array, index.toDouble())).toByte()
+                    Context.toNumber(ScriptableObject.getProperty(array, index)).toInt().toByte()
                 }
             } else {
                 ByteArray(0)

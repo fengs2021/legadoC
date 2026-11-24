@@ -41,6 +41,9 @@ object JReadRuntime {
 
     private val scopes = LinkedHashMap<String, Loaded>()
 
+    /** 音色表缓存：插件取音色可能触发 onLoadData 的网络请求，不能每次渲染都跑一遍。 */
+    private val voiceCache = LinkedHashMap<String, List<JReadVoiceEntry>>()
+
     /** Z·阅读 的源码兼容重写；顺序敏感：先长后短，不可调换。 */
     fun preparePluginCode(raw: String): String {
         var code = raw
@@ -57,49 +60,150 @@ object JReadRuntime {
         return code
     }
 
-    fun voices(plugin: JReadPlugin, locale: String = DEFAULT_LOCALE, activeVoice: String = ""): List<JReadVoiceEntry> =
-        synchronized(lock) {
-            val loaded = load(plugin, locale, activeVoice) ?: return emptyList()
-            val editor = loaded.editorJs ?: return emptyList()
-            withContext { cx ->
-                val function = ScriptableObject.getProperty(editor, "getVoices") as? Function
-                    ?: return@withContext emptyList()
-                val raw = runCatching {
-                    function.call(cx, loaded.scope, editor, arrayOf<Any?>(locale))
-                }.getOrElse {
-                    AppLog.put("JRead 取音色失败：${plugin.name}\n${it.localizedMessage}", it)
-                    return@withContext emptyList()
-                }
-                val source = raw as? Scriptable ?: return@withContext emptyList()
-                source.ids.mapNotNull { id ->
-                    val key = Context.toString(id)
-                    val value = ScriptableObject.getProperty(source, key)
-                    if (value == Scriptable.NOT_FOUND || value is Undefined) return@mapNotNull null
-                    JReadVoiceEntry(plugin.pluginId, plugin.name, key, Context.toString(value), locale)
+    /**
+     * 取全部音色。
+     *
+     * 与 Z·阅读 的三处差异必须照做，否则大量插件取不到音色：
+     * 1. 先跑 [EditorJS.onLoadData]（微软系列音色表是运行时从网络/缓存加载的，初始为 {}）；
+     * 2. `getLocales()` 返回的可能是**分组 key**（recommend/female/male…），不是语言码，
+     *    需要按分组逐个调 `getVoices(group)` 再合并；
+     * 3. 音色值可能是 `{name, icon}` 对象，也可能是字符串，两种都要解。
+     */
+    fun voices(
+        plugin: JReadPlugin,
+        locale: String = DEFAULT_LOCALE,
+        activeVoice: String = "",
+        forceRefresh: Boolean = false
+    ): List<JReadVoiceEntry> = synchronized(lock) {
+        if (!forceRefresh) {
+            voiceCache[plugin.pluginId]?.let { return it }
+        }
+        val loaded = load(plugin, locale, activeVoice) ?: return emptyList()
+        val editor = loaded.editorJs ?: return emptyList()
+        val list = withContext { cx ->
+            runCatching {
+                (ScriptableObject.getProperty(editor, "onLoadData") as? Function)
+                    ?.call(cx, loaded.scope, editor, emptyArray<Any?>())
+            }.onFailure {
+                AppLog.put("JRead onLoadData 失败：${plugin.name}\n${it.localizedMessage}")
+            }
+            loaded.pluginJs?.let { pluginJs ->
+                runCatching {
+                    (ScriptableObject.getProperty(pluginJs, "onLoad") as? Function)
+                        ?.call(cx, loaded.scope, pluginJs, emptyArray<Any?>())
+                }.onFailure {
+                    AppLog.put("JRead onLoad 失败（可能缺变量）：${plugin.name}\n${it.localizedMessage}")
                 }
             }
+            val getVoices = ScriptableObject.getProperty(editor, "getVoices") as? Function
+                ?: return@withContext emptyList()
+            val groups = runCatching {
+                scriptableKeys(ScriptableObject.getProperty(editor, "getLocales") as? Function, cx, loaded, editor)
+            }.getOrDefault(emptyList()).ifEmpty { listOf(locale) }
+            val collected = LinkedHashMap<String, JReadVoiceEntry>()
+            groups.forEach { group ->
+                val raw = runCatching {
+                    getVoices.call(cx, loaded.scope, editor, arrayOf<Any?>(group))
+                }.getOrElse {
+                    AppLog.put("JRead 取音色失败：${plugin.name} / $group\n${it.localizedMessage}")
+                    return@forEach
+                }
+                val source = raw as? Scriptable ?: return@forEach
+                source.ids.forEach { id ->
+                    val key = Context.toString(id)
+                    val value = ScriptableObject.getProperty(source, key)
+                    if (value == Scriptable.NOT_FOUND || value is Undefined) return@forEach
+                    val (name, gender) = voiceNameAndGender(value)
+                    if (name.isBlank()) return@forEach
+                    val entry = JReadVoiceEntry(
+                        pluginKey = plugin.pluginId,
+                        pluginName = plugin.name,
+                        id = key,
+                        name = name,
+                        locale = locale,
+                        gender = gender,
+                        group = group
+                    )
+                    collected.putIfAbsent(entry.globalId, entry)
+                }
+            }
+            collected.values.toList()
         }
+        voiceCache[plugin.pluginId] = list
+        list
+    }
 
-    fun onLoad(plugin: JReadPlugin, locale: String = DEFAULT_LOCALE, activeVoice: String = "") = synchronized(lock) {
-        val loaded = load(plugin, locale, activeVoice) ?: return
-        val pluginJs = loaded.pluginJs ?: return
-        withContext { cx ->
-            val function = ScriptableObject.getProperty(pluginJs, "onLoad") as? Function ?: return@withContext
-            function.call(cx, loaded.scope, pluginJs, emptyArray<Any?>())
+    /** getLocales 既可能是数组也可能是分组对象，统一点成 key 列表。 */
+    private fun scriptableKeys(
+        function: Function?,
+        cx: RhinoContext,
+        loaded: Loaded,
+        editor: Scriptable
+    ): List<String> {
+        val raw = function?.call(cx, loaded.scope, editor, emptyArray<Any?>()) ?: return emptyList()
+        val scriptable = raw as? Scriptable ?: return emptyList()
+        return if (scriptable is org.mozilla.javascript.NativeArray) {
+            (0 until scriptable.length.toInt()).mapNotNull { index ->
+                val item = ScriptableObject.getProperty(scriptable, index)
+                if (item == Scriptable.NOT_FOUND || item is Undefined) null else Context.toString(item)
+            }
+        } else {
+            scriptable.ids.map { Context.toString(it) }
         }
     }
 
-    fun onStop(plugin: JReadPlugin, locale: String = DEFAULT_LOCALE, activeVoice: String = "") = synchronized(lock) {
-        val loaded = load(plugin, locale, activeVoice) ?: return
-        val pluginJs = loaded.pluginJs ?: return
-        withContext { cx ->
-            val function = ScriptableObject.getProperty(pluginJs, "onStop") as? Function ?: return@withContext
-            runCatching { function.call(cx, loaded.scope, pluginJs, emptyArray<Any?>()) }
+    /** 音色值解包：`{name, icon}` 取 name/icon，字符串直接用；名称压平成单行并截断。 */
+    private fun voiceNameAndGender(value: Any?): Pair<String, String?> {
+        fun clean(text: String): String = text.replace(Regex("\\s+"), " ").trim()
+        if (value is Scriptable) {
+            fun read(field: String): String? {
+                val item = ScriptableObject.getProperty(value, field)
+                return if (item == Scriptable.NOT_FOUND || item is Undefined) null else Context.toString(item)
+            }
+            val name = (read("name") ?: read("label") ?: read("title")).orEmpty()
+            val gender = read("icon") ?: read("gender")
+            return clean(name) to gender?.trim()?.lowercase()?.takeIf { it == "male" || it == "female" }
+        }
+        return clean(Context.toString(value)) to null
+    }
+
+    fun onLoad(plugin: JReadPlugin, locale: String = DEFAULT_LOCALE, activeVoice: String = "") {
+        synchronized(lock) {
+            val loaded = load(plugin, locale, activeVoice) ?: return
+            val pluginJs = loaded.pluginJs ?: return
+            withContext { cx ->
+                val function = ScriptableObject.getProperty(pluginJs, "onLoad") as? Function
+                if (function != null) {
+                    function.call(cx, loaded.scope, pluginJs, emptyArray<Any?>())
+                }
+            }
+        }
+    }
+
+    fun onStop(plugin: JReadPlugin, locale: String = DEFAULT_LOCALE, activeVoice: String = "") {
+        synchronized(lock) {
+            val loaded = load(plugin, locale, activeVoice) ?: return
+            val pluginJs = loaded.pluginJs ?: return
+            withContext { cx ->
+                val function = ScriptableObject.getProperty(pluginJs, "onStop") as? Function
+                if (function != null) {
+                    runCatching { function.call(cx, loaded.scope, pluginJs, emptyArray<Any?>()) }
+                }
+            }
         }
     }
 
     data class SynthesisResult(val audio: JReadAudio, val needDecode: Boolean)
 
+    /**
+     * 合成一段文本。
+     *
+     * 两条通道，与 Z·阅读 一致：
+     * - 同步：`PluginJS.getAudio(text, locale, voice, rate, volume, pitch)` 直接返回音频字节；
+     * - 异步：插件只实现 `getAudioV2(request, callback)`（WS/流式插件，如豆包 374/745），
+     *   由 callback.write 多次回传分片，callback.close 结束。
+     * 只实现 V2 的插件在同步通道下会报「缺少 getAudio」，所以必须先探测再走对应通道。
+     */
     fun synthesize(
         plugin: JReadPlugin,
         text: String,
@@ -111,25 +215,35 @@ object JReadRuntime {
     ): JReadAudio = synchronized(lock) {
         val loaded = load(plugin, locale, voiceId) ?: throw IllegalStateException("插件不可用：${plugin.name}")
         val pluginJs = loaded.pluginJs ?: throw IllegalStateException("插件缺少 PluginJS：${plugin.name}")
-        val function = withContext { cx ->
-            ScriptableObject.getProperty(pluginJs, "getAudio") as? Function
-        } ?: throw IllegalStateException("插件缺少 getAudio：${plugin.name}")
-        val result = withContext { cx ->
-            function.call(
-                cx,
-                loaded.scope,
-                pluginJs,
-                arrayOf<Any?>(
-                    text,
-                    locale,
-                    voiceId,
-                    plugin.rateArg(baseRate),
-                    plugin.volumeArg(baseVolume),
-                    plugin.pitchArg(basePitch)
-                )
-            )
+        val rate = plugin.rateArg(baseRate)
+        val volume = plugin.volumeArg(baseVolume)
+        val pitch = plugin.pitchArg(basePitch)
+        val getAudio = withContext { cx -> ScriptableObject.getProperty(pluginJs, "getAudio") as? Function }
+        var bytes = ByteArray(0)
+        var needV2 = getAudio == null
+        if (getAudio != null) {
+            val outcome = withContext { cx ->
+                runCatching {
+                    getAudio.call(cx, loaded.scope, pluginJs, arrayOf<Any?>(text, locale, voiceId, rate, volume, pitch))
+                }
+            }
+            val result = outcome.getOrNull()
+            if (result != null) {
+                bytes = JReadTtsrv.bytesOf(result)
+            }
+            val failure = outcome.exceptionOrNull()
+            if (bytes.isEmpty() && failure != null) {
+                // Z·阅读 约定：同步通道不可用时会抛这个标记，此时转 V2 异步通道
+                if (failure.message.orEmpty().contains(NO_GET_AUDIO_MARK)) {
+                    needV2 = true
+                } else {
+                    throw failure
+                }
+            }
         }
-        val bytes = JReadTtsrv.bytesOf(result)
+        if (needV2) {
+            bytes = synthesizeV2(loaded, pluginJs, text, locale, voiceId, rate, volume, pitch)
+        }
         if (bytes.isEmpty()) throw IllegalStateException("插件未返回音频：${plugin.name} / $voiceId")
         JReadTtsrv.persistData(loaded.ttsrv, loaded.storage)
         JReadAudio(
@@ -139,9 +253,135 @@ object JReadRuntime {
         )
     }
 
-    fun invalidate(pluginId: String) = synchronized(lock) { scopes.remove(pluginId) }
+    private const val NO_GET_AUDIO_MARK = "__JREAD_NO_GET_AUDIO__"
 
-    fun clear() = synchronized(lock) { scopes.clear() }
+    /** 异步通道：getAudioV2(__jreadRequest, __jreadCallback)，等回调写完再收。 */
+    private fun synthesizeV2(
+        loaded: Loaded,
+        pluginJs: Scriptable,
+        text: String,
+        locale: String,
+        voiceId: String,
+        rate: Int,
+        volume: Int,
+        pitch: Int
+    ): ByteArray {
+        val collector = AudioCollector()
+        withContext { cx ->
+            val getAudioV2 = ScriptableObject.getProperty(pluginJs, "getAudioV2") as? Function
+                ?: throw IllegalStateException("插件既没有 getAudio 也没有 getAudioV2")
+            val request = cx.newObject(loaded.scope)
+            ScriptableObject.putProperty(request, "text", text)
+            ScriptableObject.putProperty(request, "locale", locale)
+            ScriptableObject.putProperty(request, "voice", voiceId)
+            ScriptableObject.putProperty(request, "rate", rate)
+            ScriptableObject.putProperty(request, "speed", rate)
+            ScriptableObject.putProperty(request, "volume", volume)
+            ScriptableObject.putProperty(request, "pitch", pitch)
+            val dataCopy = cx.newObject(loaded.scope)
+            val tts = ScriptableObject.getProperty(loaded.ttsrv, "tts") as? Scriptable
+            val dataObj = tts?.let { ScriptableObject.getProperty(it, "data") as? Scriptable }
+            dataObj?.ids?.forEach { id ->
+                val key = Context.toString(id)
+                val value = ScriptableObject.getProperty(dataObj, key)
+                if (value != Scriptable.NOT_FOUND && value !is Undefined) {
+                    ScriptableObject.putProperty(dataCopy, key, value)
+                }
+            }
+            ScriptableObject.putProperty(request, "data", dataCopy)
+            listOf("contextTexts", "clonePresetIndex").forEach { key ->
+                val value = dataObj?.let { ScriptableObject.getProperty(it, key) }
+                if (value != null && value != Scriptable.NOT_FOUND && value !is Undefined) {
+                    ScriptableObject.putProperty(request, key, value)
+                }
+            }
+            val callback = cx.newObject(loaded.scope)
+            ScriptableObject.putProperty(callback, "write", callbackFunction(cx, loaded.scope, "write") { args ->
+                collector.write(JReadTtsrv.bytesOf(args.getOrNull(0)))
+                null
+            })
+            ScriptableObject.putProperty(callback, "close", callbackFunction(cx, loaded.scope, "close") {
+                collector.finish(null)
+                null
+            })
+            ScriptableObject.putProperty(callback, "error", callbackFunction(cx, loaded.scope, "error") { args ->
+                collector.finish(args.joinToString(" ") { Context.toString(it) })
+                null
+            })
+            getAudioV2.call(cx, loaded.scope, pluginJs, arrayOf(request, callback))
+        }
+        collector.await()
+        collector.error?.let { throw IllegalStateException("插件回调报错：$it") }
+        return collector.toByteArray()
+    }
+
+    private fun callbackFunction(
+        cx: Context,
+        scope: Scriptable,
+        name: String,
+        body: (Array<out Any?>) -> Any?
+    ): BaseFunction = object : BaseFunction(scope, ScriptableObject.getFunctionPrototype(scope)) {
+        override fun getFunctionName(): String = name
+        override fun call(
+            cx: Context,
+            scope: Scriptable,
+            thisObj: Scriptable,
+            args: Array<out Any?>
+        ): Any = body(args) ?: Context.getUndefinedValue()
+    }
+
+    /** 收集 getAudioV2 分片；插件可能在自己的线程里 write，所以用独立锁 + volatile 完成标志。 */
+    private class AudioCollector {
+        private val buffer = java.io.ByteArrayOutputStream()
+        private val monitor = Object()
+
+        @Volatile
+        var finished: Boolean = false
+            private set
+
+        @Volatile
+        var error: String? = null
+            private set
+
+        fun write(bytes: ByteArray) {
+            if (bytes.isEmpty()) return
+            synchronized(buffer) { buffer.write(bytes) }
+        }
+
+        fun finish(reason: String?) {
+            error = reason
+            finished = true
+            synchronized(monitor) { monitor.notifyAll() }
+        }
+
+        fun await() {
+            val deadline = System.currentTimeMillis() + 90_000
+            synchronized(monitor) {
+                while (!finished && System.currentTimeMillis() < deadline) {
+                    monitor.wait(50)
+                }
+            }
+            if (!finished) {
+                throw IllegalStateException("插件合成超时（90s 未收到音频或完成回调）")
+            }
+        }
+
+        fun toByteArray(): ByteArray = synchronized(buffer) { buffer.toByteArray() }
+    }
+
+    fun invalidate(pluginId: String) {
+        synchronized(lock) {
+            scopes.remove(pluginId)
+            voiceCache.remove(pluginId)
+        }
+    }
+
+    fun clear() {
+        synchronized(lock) {
+            scopes.clear()
+            voiceCache.clear()
+        }
+    }
 
     private fun load(plugin: JReadPlugin, locale: String, activeVoice: String): Loaded? {
         val signature = plugin.code.hashCode() * 31 +
@@ -265,8 +505,23 @@ object JReadRuntime {
             val raw = Context.toString(args.getOrNull(0) ?: "")
             android.util.Base64.encodeToString(raw.toByteArray(Charsets.ISO_8859_1), android.util.Base64.NO_WRAP)
         })
-        put("Websocket", bridge("Websocket") { args -> null })
-        put("WebSocket", bridge("WebSocket") { args -> null })
+        fun connect(args: Array<out Any?>): Any {
+            val url = args.getOrNull(0)?.let { Context.toString(it) }
+                ?: throw IllegalArgumentException("Websocket: 缺少 url")
+            val headers = LinkedHashMap<String, String>()
+            (args.getOrNull(1) as? Scriptable)?.let { headerObj ->
+                headerObj.ids.forEach { id ->
+                    val key = Context.toString(id)
+                    val value = ScriptableObject.getProperty(headerObj, key)
+                    if (value != Scriptable.NOT_FOUND && value !is Undefined) {
+                        headers[key] = Context.toString(value)
+                    }
+                }
+            }
+            return Context.javaToJS(JReadWebSocket(url, headers, scope), scope)
+        }
+        put("Websocket", bridge("Websocket") { args -> connect(args) })
+        put("WebSocket", bridge("WebSocket") { args -> connect(args) })
     }
 
     private fun Any?.asScriptableOrNull(): Scriptable? =

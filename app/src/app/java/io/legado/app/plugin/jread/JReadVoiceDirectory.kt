@@ -52,8 +52,8 @@ object JReadVoiceDirectory : TtsVoiceDirectory {
                     voices += TtsVoiceInfo(
                         id = entry.globalId,
                         name = "${plugin.name} / ${entry.name}",
-                        desc = null,
-                        gender = JReadGender.infer(entry.name, entry.id),
+                        desc = entry.group?.takeIf { it.isNotBlank() && it != entry.locale },
+                        gender = entry.gender ?: JReadGender.infer(entry.name, entry.id),
                         locale = entry.locale
                     )
                 }
