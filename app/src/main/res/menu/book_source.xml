@@ -139,6 +139,12 @@
         app:showAsAction="never" />
 
     <item
+        android:id="@+id/menu_prevent_verification"
+        android:checkable="true"
+        android:title="禁止弹出验证/内置浏览器"
+        app:showAsAction="never" />
+
+    <item
         android:id="@+id/menu_help"
         android:icon="@drawable/ic_help"
         android:title="@string/help"

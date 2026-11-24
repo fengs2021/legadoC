@@ -1775,6 +1775,11 @@ object AppConfig : SharedPreferences.OnSharedPreferenceChangeListener {
             appCtx.putPrefBoolean(PreferKey.ttsCacheKeyVoice, value)
         }
 
+    /** 书源请求遇到人机验证时是否禁止弹出验证码/内置浏览器（直接失败）。 */
+    var preventSourceVerification: Boolean
+        get() = appCtx.getPrefBoolean(PreferKey.preventSourceVerification, false)
+        set(value) = appCtx.putPrefBoolean(PreferKey.preventSourceVerification, value)
+
     /** 缓存包备份是否包含 TTS 缓存。默认不包含：wav 体积大且可由文本+引擎重新合成。 */
     var ttsCacheIncludeInPackage: Boolean
         get() = appCtx.getPrefBoolean(PreferKey.ttsCacheIncludeInPackage, false)

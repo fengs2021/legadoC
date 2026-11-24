@@ -9,6 +9,7 @@ import io.legado.app.help.IntentData
 import io.legado.app.ui.association.VerificationCodeActivity
 import io.legado.app.ui.browser.WebViewActivity
 import io.legado.app.utils.isMainThread
+import io.legado.app.help.config.AppConfig
 import io.legado.app.utils.startActivity
 import splitties.init.appCtx
 import java.util.concurrent.locks.LockSupport
@@ -45,6 +46,9 @@ object SourceVerificationHelp {
             ?: throw NoStackTraceException("getVerificationResult parameter source cannot be null")
         require(url.length < 64 * 1024) { "getVerificationResult parameter url too long" }
         check(!isMainThread) { "getVerificationResult must be called on a background thread" }
+
+        // 用户在书源管理里勾了「禁止弹出验证/内置浏览器」：直接返回空结果，由调用方按失败处理
+        if (AppConfig.preventSourceVerification) return "" to ""
 
         clearResult(source.getKey())
 
@@ -99,6 +103,8 @@ object SourceVerificationHelp {
     ) {
         source ?: throw NoStackTraceException("startBrowser parameter source cannot be null")
         require(url.length < 64 * 1024) { "startBrowser parameter url too long" }
+        // 同上：禁止时不再拉起内置浏览器
+        if (AppConfig.preventSourceVerification) return
         appCtx.startActivity<WebViewActivity> {
             putExtra("title", title)
             putExtra("url", url)

@@ -25,6 +25,7 @@ import io.legado.app.data.AppDatabase
 import io.legado.app.data.appDb
 import io.legado.app.data.entities.BookSourcePart
 import io.legado.app.databinding.ActivityBookSourceBinding
+import io.legado.app.help.config.AppConfig
 import io.legado.app.databinding.DialogEditTextBinding
 import io.legado.app.help.DirectLinkUpload
 import io.legado.app.lib.dialogs.alert
@@ -160,6 +161,8 @@ class BookSourceActivity : VMBaseActivity<ActivityBookSourceBinding, BookSourceV
     override fun onPrepareOptionsMenu(menu: Menu): Boolean {
         groupMenu = menu.findItem(R.id.menu_group).subMenu
         val sortSubMenu = menu.findItem(R.id.action_sort).subMenu!!
+        menu.findItem(R.id.menu_prevent_verification)?.isChecked =
+            AppConfig.preventSourceVerification
         sortSubMenu.findItem(R.id.menu_sort_desc).isChecked = !sortAscending
         sortSubMenu.setGroupCheckable(R.id.menu_group_sort, true, true)
         upGroupMenu()
@@ -255,6 +258,11 @@ class BookSourceActivity : VMBaseActivity<ActivityBookSourceBinding, BookSourceV
                 groupSourcesByDomain = item.isChecked
                 adapter.showSourceHost = item.isChecked
                 upBookSource(searchView.query?.toString())
+            }
+
+            R.id.menu_prevent_verification -> {
+                AppConfig.preventSourceVerification = !item.isChecked
+                item.isChecked = !item.isChecked
             }
 
             R.id.menu_help -> showHelp("SourceMBookHelp")

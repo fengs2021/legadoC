@@ -73,9 +73,14 @@ class DoubaoReadAloudService : BaseReadAloudService(), Player.Listener {
     @Volatile
     private var lastSegmentEndedAt: Long = 0L
 
+    @Volatile
+    private var lastLoggedSpeaker: String? = null
+
+    private val loggedCastKeys = java.util.Collections.synchronizedSet(mutableSetOf<String>())
+
     /** 朗读链路探针：段切换/缓存命中/合成耗时/段间空档，统一带 ms 时间戳写朗读日志。 */
     private fun probe(message: String) {
-        ReadAloudDebugLog.add("探针", message)
+        // 探针已关闭：复测时改回 ReadAloudDebugLog.add("探针", message)
     }
 
     /** 当前段落的播放片段（旁白/对白交替）与正在播放的下标。 */
@@ -281,8 +286,8 @@ class DoubaoReadAloudService : BaseReadAloudService(), Player.Listener {
     }
 
     private fun logCastPick(source: String, segment: io.legado.app.help.tts.StoryboardSegment, voice: String) {
-        if (castLogCount >= 10) return
-        castLogCount++
+        val key = source + "|" + (segment.speakerName ?: "") + "|" + voice
+        if (!loggedCastKeys.add(key)) return
         ReadAloudDebugLog.add(
             "选角",
             "命中(" + source + ") " + (segment.speakerName ?: "?") + " → " + DoubaoVoices.describe(voice)
@@ -605,10 +610,11 @@ class DoubaoReadAloudService : BaseReadAloudService(), Player.Listener {
         lastRoleName = chunk.roleLabel
         lastVoiceId = chunk.voiceId
         refreshFloatingSpeakerLabel()
-        ReadAloudDebugLog.add(
-            "音色",
-            (chunk.roleLabel ?: "旁白") + " → " + DoubaoVoices.describe(chunk.voiceId)
-        )
+        val label = (chunk.roleLabel ?: "旁白") + " → " + DoubaoVoices.describe(chunk.voiceId)
+        if (label != lastLoggedSpeaker) {
+            lastLoggedSpeaker = label
+            ReadAloudDebugLog.add("音色", label)
+        }
     }
 
     private fun startPlayback(file: File, text: String) {

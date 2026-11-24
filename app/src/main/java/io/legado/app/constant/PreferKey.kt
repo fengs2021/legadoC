@@ -78,6 +78,9 @@ object PreferKey {
     /** 朗读页角色标注：开启后朗读按分镜角色切换音色，并在阅读页展示角色名。 */
     const val readAloudRoleMark = "readAloudRoleMark"
 
+    /** 禁止弹出验证/内置浏览器：书源请求需要人机验证时直接失败，不弹 WebView。 */
+    const val preventSourceVerification = "preventSourceVerification"
+
     const val aiNarratorSpeakerId = "aiNarratorSpeakerId"
     const val aiDialogueMaleSpeakerId = "aiDialogueMaleSpeakerId"
     const val aiDialogueFemaleSpeakerId = "aiDialogueFemaleSpeakerId"
