@@ -219,6 +219,7 @@ object JReadRuntime {
         val volume = plugin.volumeArg(baseVolume)
         val pitch = plugin.pitchArg(basePitch)
         val getAudio = withContext { cx -> ScriptableObject.getProperty(pluginJs, "getAudio") as? Function }
+        var synthesizedType: String = "none"
         var bytes = ByteArray(0)
         var needV2 = getAudio == null
         if (getAudio != null) {
@@ -229,6 +230,7 @@ object JReadRuntime {
             }
             val result = outcome.getOrNull()
             if (result != null) {
+                synthesizedType = result.javaClass.name
                 bytes = JReadTtsrv.bytesOf(result)
             }
             val failure = outcome.exceptionOrNull()
@@ -244,7 +246,11 @@ object JReadRuntime {
         if (needV2) {
             bytes = synthesizeV2(loaded, pluginJs, text, locale, voiceId, rate, volume, pitch)
         }
-        if (bytes.isEmpty()) throw IllegalStateException("插件未返回音频：${plugin.name} / $voiceId")
+        if (bytes.isEmpty()) {
+            throw IllegalStateException(
+                "插件未返回音频：${plugin.name} / $voiceId（返回类型 $synthesizedType）"
+            )
+        }
         JReadTtsrv.persistData(loaded.ttsrv, loaded.storage)
         JReadAudio(
             bytes = bytes,
@@ -278,6 +284,7 @@ object JReadRuntime {
             ScriptableObject.putProperty(request, "speed", rate)
             ScriptableObject.putProperty(request, "volume", volume)
             ScriptableObject.putProperty(request, "pitch", pitch)
+            ScriptableObject.putProperty(request, "task_id", java.util.UUID.randomUUID().toString())
             val dataCopy = cx.newObject(loaded.scope)
             val tts = ScriptableObject.getProperty(loaded.ttsrv, "tts") as? Scriptable
             val dataObj = tts?.let { ScriptableObject.getProperty(it, "data") as? Scriptable }

@@ -345,6 +345,16 @@ internal object JReadTtsrv {
     fun bytesOf(value: Any?): ByteArray = when (value) {
         null -> ByteArray(0)
         is ByteArray -> value
+        // Rhino 会把 Java byte[] / ByteArrayOutputStream / InputStream 包成 Wrapper，
+        // 不解包就会落到最后按 length 取，结果永远是空字节（插件「未返回音频」的真因）。
+        is org.mozilla.javascript.Wrapper -> when (val unwrapped = value.unwrap()) {
+            is ByteArray -> unwrapped
+            is java.io.InputStream -> unwrapped.use { it.readBytes() }
+            is java.io.ByteArrayOutputStream -> unwrapped.toByteArray()
+            is String -> unwrapped.toByteArray(Charsets.UTF_8)
+            is org.mozilla.javascript.NativeArray -> bytesOf(unwrapped)
+            else -> ByteArray(0)
+        }
         is org.mozilla.javascript.NativeArray -> {
             val length = value.length.toInt()
             ByteArray(length) { index ->

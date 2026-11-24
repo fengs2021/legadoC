@@ -82,6 +82,19 @@ internal class JReadWebSocket(
         closed = true
     }
 
+    /** 插件常用 ws.cancel() 立即中断连接（不握手关闭）；缺这个方法会让插件内部 try/catch 静默失败。 */
+    fun cancel() {
+        runCatching { socket?.cancel() }
+        closed = true
+    }
+
+    /** 个别插件用 terminate()，语义同 cancel。 */
+    fun terminate() {
+        cancel()
+    }
+
+    fun isOpen(): Boolean = opened && !closed
+
     private fun fire(event: String, args: Array<Any?>) {
         val callbacks = synchronized(lock) { handlers[event]?.toList() } ?: return
         if (callbacks.isEmpty()) return
