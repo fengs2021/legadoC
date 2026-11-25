@@ -533,10 +533,13 @@ class BookInfoActivity :
 
             R.id.menu_delete_alert -> LocalConfig.bookInfoDeleteAlert = !item.isChecked
             R.id.menu_record_read_time -> viewModel.getBook()?.let { book ->
-                val record = AppConfig.isReadRecordExcluded(book.bookUrl)
-                AppConfig.setReadRecordExcluded(book.bookUrl, record)
-                item.isChecked = record
-                if (record) {
+                // item.isChecked 是上次菜单渲染的快照，点击不会自动翻转；
+                // 以排除集合的实际值取反，并把新状态写回菜单项。
+                val excluded = !AppConfig.isReadRecordExcluded(book.bookUrl)
+                AppConfig.setReadRecordExcluded(book.bookUrl, excluded)
+                val recording = !excluded
+                item.isChecked = recording
+                if (recording) {
                     longToastOnUi(R.string.read_record_switch_on)
                 } else {
                     longToastOnUi(R.string.read_record_switch_off)

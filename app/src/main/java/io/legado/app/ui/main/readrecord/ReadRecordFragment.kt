@@ -191,9 +191,10 @@ class ReadRecordFragment() : BaseFragment(R.layout.activity_read_record), MainFr
     override fun onCompatOptionsItemSelected(item: MenuItem) {
         when (item.itemId) {
             R.id.menu_enable_record -> {
-                AppConfig.enableReadRecord = !item.isChecked
-                supportToolbar?.menu?.findItem(R.id.menu_enable_record)?.isChecked =
-                    AppConfig.enableReadRecord
+                // 与其他入口统一：读配置实际值取反，不依赖 item.isChecked
+                val enabled = !AppConfig.enableReadRecord
+                AppConfig.enableReadRecord = enabled
+                supportToolbar?.menu?.findItem(R.id.menu_enable_record)?.isChecked = enabled
             }
 
             R.id.menu_clear_record -> {

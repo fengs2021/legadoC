@@ -114,14 +114,31 @@ class ReadRecordActivity : BaseActivity<ActivityReadRecordBinding>() {
     }
 
     override fun onMenuOpened(featureId: Int, menu: Menu): Boolean {
-        menu.findItem(R.id.menu_enable_record)?.isChecked = AppConfig.enableReadRecord
+        upRecordMenuState(menu)
         return super.onMenuOpened(featureId, menu)
+    }
+
+    /**
+     * 自绘溢出菜单（BaseActivity → SurfacePopupMenu）弹出时只派发本回调，
+     * 不会触发 onMenuOpened。勾选态若不在这里同步，菜单项的 isChecked
+     * 会永远停在 XML 初始值 false，点击取反后反而被设成 true，表现为开关取消不了。
+     */
+    override fun onSurfaceMenuOpened(menu: Menu) {
+        super.onSurfaceMenuOpened(menu)
+        upRecordMenuState(menu)
+    }
+
+    private fun upRecordMenuState(menu: Menu) {
+        menu.findItem(R.id.menu_enable_record)?.isChecked = AppConfig.enableReadRecord
     }
 
     override fun onCompatOptionsItemSelected(item: MenuItem): Boolean {
         when (item.itemId) {
             R.id.menu_enable_record -> {
-                AppConfig.enableReadRecord = !item.isChecked
+                // 自绘溢出菜单不会自动翻转 isChecked，必须以配置为唯一事实源取反
+                val enabled = !AppConfig.enableReadRecord
+                AppConfig.enableReadRecord = enabled
+                item.isChecked = enabled
                 invalidateOptionsMenu()
                 return true
             }
