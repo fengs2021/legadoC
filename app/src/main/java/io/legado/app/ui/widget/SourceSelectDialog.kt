@@ -169,7 +169,7 @@ object SourceSelectDialog {
                         includeFontPadding = false
                         gravity = Gravity.CENTER
                         isSelected = type == activeType
-                        setTextColor(if (isSelected) Color.WHITE else primaryTextColor(context))
+                        setTextColor(if (isSelected) Color.WHITE else context.primaryTextColor)
                         background = UiCorner.dialogActionSelector(
                             UiCorner.themeSurfaceMutedColor(context),
                             context.accentColor,
@@ -184,7 +184,7 @@ object SourceSelectDialog {
                             activeType = type
                             chips.forEach { it.isSelected = (it == this@apply) }
                             chips.forEach { c ->
-                                c.setTextColor(if (c.isSelected) Color.WHITE else primaryTextColor(context))
+                                c.setTextColor(if (c.isSelected) Color.WHITE else context.primaryTextColor)
                             }
                             applyFilter()
                         }
