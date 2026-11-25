@@ -147,10 +147,16 @@ class DoubaoReadAloudService : BaseReadAloudService(), Player.Listener {
         }
 
         val chunks = mutableListOf<VoiceChunk>()
+        // 分镜的 start/end 是相对「去掉首尾空白的段落」算出来的，而这里的 text 是
+        // 朗读单元原文（中文小说常带全角缩进）。把偏移直接套在原文上会整体前移，
+        // 切割点落进词里：例如「尹雅笑眯眯道：“…？”」会被切成「尹雅笑眯 | 眯道…”。
+        // 所以先按分镜自带 text 做内容锚定，锚不上再按缩进量校正偏移。
+        val lead = text.indexOfFirst { !it.isWhitespace() }.coerceAtLeast(0)
         var cursor = 0
         for (segment in segments) {
-            val start = segment.start.coerceIn(0, text.length)
-            val end = segment.end.coerceIn(start, text.length)
+            val range = locateSegmentRange(text, segment, lead, cursor) ?: continue
+            val start = range.first
+            val end = range.second
             if (start > cursor) {
                 chunks += VoiceChunk(text.substring(cursor, start), narrator, null)
             }
@@ -172,6 +178,27 @@ class DoubaoReadAloudService : BaseReadAloudService(), Player.Listener {
         // 区间明显不可靠时（切出来不足原文一半）直接退回整段，避免读漏字
         if (merged.sumOf { it.text.length } < text.length / 2) return single
         return mergeShortChunks(merged)
+    }
+
+    /**
+     * 定位分镜在当前朗读单元里的真实区间。
+     * 首选内容锚定（分镜自带 text 是原文切片，最可靠）；找不到时按缩进量 [lead] 校正偏移。
+     * [from] 是已消费到的位置，避免锚到前面重复出现的同一句话。
+     */
+    private fun locateSegmentRange(
+        text: String,
+        segment: io.legado.app.help.tts.StoryboardSegment,
+        lead: Int,
+        from: Int,
+    ): Pair<Int, Int>? {
+        val anchor = segment.text.trim()
+        if (anchor.isNotEmpty()) {
+            val hit = text.indexOf(anchor, from.coerceIn(0, text.length))
+            if (hit >= 0) return hit to hit + anchor.length
+        }
+        val start = (segment.start + lead).coerceIn(from.coerceIn(0, text.length), text.length)
+        val end = (segment.end + lead).coerceIn(start, text.length)
+        return if (end > start) start to end else null
     }
 
     /**
