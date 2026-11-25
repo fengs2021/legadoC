@@ -366,6 +366,7 @@ object PreferKey {
     const val tocUiUseReplace = "tocUiUseReplace"
     const val tocCountWords = "tocCountWords"
     const val enableReadRecord = "enableReadRecord"
+    const val readRecordExcludeBooks = "readRecordExcludeBooks"
     const val readRecordComponents = "readRecordComponents"
     const val readRecordRecentSnapshots = "readRecordRecentSnapshots"
     const val readRecordGoalConfig = "readRecordGoalConfig"

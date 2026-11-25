@@ -1386,6 +1386,33 @@ object AppConfig : SharedPreferences.OnSharedPreferenceChangeListener {
             appCtx.putPrefBoolean(PreferKey.enableReadRecord, value)
         }
 
+    /**
+     * 不记录阅读记录/阅读时长的书（bookUrl 集合，换行分隔）。
+     * 由书籍详情页逐本关闭；视频书一律不记录，不体现在此集合里。
+     */
+    var readRecordExcludeBooks: Set<String>
+        get() = appCtx.getPrefString(PreferKey.readRecordExcludeBooks)
+            ?.splitToSequence('\n')
+            ?.filter { it.isNotBlank() }
+            ?.toSet()
+            ?: emptySet()
+        set(value) {
+            appCtx.putPrefString(PreferKey.readRecordExcludeBooks, value.joinToString("\n"))
+        }
+
+    fun isReadRecordExcluded(bookUrl: String?): Boolean {
+        return !bookUrl.isNullOrBlank() && bookUrl in readRecordExcludeBooks
+    }
+
+    fun setReadRecordExcluded(bookUrl: String?, excluded: Boolean) {
+        if (bookUrl.isNullOrBlank()) return
+        val current = readRecordExcludeBooks
+        val next = if (excluded) current + bookUrl else current - bookUrl
+        if (next != current) {
+            readRecordExcludeBooks = next
+        }
+    }
+
     val autoChangeSource: Boolean
         get() = appCtx.getPrefBoolean(PreferKey.autoChangeSource, true)
 

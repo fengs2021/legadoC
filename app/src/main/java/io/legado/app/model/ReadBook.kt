@@ -14,6 +14,7 @@ import io.legado.app.data.entities.BookSource
 import io.legado.app.data.entities.ReadRecord
 import io.legado.app.help.AppWebDav
 import io.legado.app.help.ReadRecordDailyHelper
+import io.legado.app.help.ReadRecordHelp
 import io.legado.app.help.book.BookHelp
 import io.legado.app.help.book.AudioTextMapping
 import io.legado.app.help.book.AudioTextFusion
@@ -335,14 +336,19 @@ object ReadBook : CoroutineScope by MainScope() {
     }
 
     fun upReadTime(forceWidgetUpdate: Boolean = false) {
-        if (!AppConfig.enableReadRecord) {
+        val now = System.currentTimeMillis()
+        val delta = now - readStartTime
+        // 起点无条件推进：被屏蔽的书或用全局开关关闭期间若不推进，
+        // 重新开启后第一次结算会把屏蔽期间的全部时间一次性计入。
+        readStartTime = now
+        if (!ReadRecordHelp.shouldRecord(book)) {
+            return
+        }
+        if (delta <= 0L) {
             return
         }
         executor.execute {
-            val now = System.currentTimeMillis()
-            val delta = now - readStartTime
             readRecord.readTime += delta
-            readStartTime = now
             readRecord.lastRead = now
             appDb.readRecordDao.insert(readRecord)
             ReadRecordDailyHelper.record(delta, now, forceWidgetUpdate)

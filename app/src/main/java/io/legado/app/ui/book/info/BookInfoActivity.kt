@@ -402,6 +402,12 @@ class BookInfoActivity :
             viewModel.bookData.value?.isLocal ?: false
         menu.findItem(R.id.menu_delete_alert)?.isChecked =
             LocalConfig.bookInfoDeleteAlert
+        menu.findItem(R.id.menu_record_read_time)?.let { item ->
+            val book = viewModel.bookData.value
+            // 视频一律不记录，开关对它无意义；全局记录关闭时也隐藏
+            item.isVisible = book != null && !book.isVideo && AppConfig.enableReadRecord
+            item.isChecked = book != null && !AppConfig.isReadRecordExcluded(book.bookUrl)
+        }
         return super.onMenuOpened(featureId, menu)
     }
 
@@ -510,6 +516,16 @@ class BookInfoActivity :
             }
 
             R.id.menu_delete_alert -> LocalConfig.bookInfoDeleteAlert = !item.isChecked
+            R.id.menu_record_read_time -> viewModel.getBook()?.let { book ->
+                val record = AppConfig.isReadRecordExcluded(book.bookUrl)
+                AppConfig.setReadRecordExcluded(book.bookUrl, record)
+                item.isChecked = record
+                if (record) {
+                    longToastOnUi(R.string.read_record_switch_on)
+                } else {
+                    longToastOnUi(R.string.read_record_switch_off)
+                }
+            }
             R.id.menu_upload -> {
                 viewModel.getBook()?.let { book ->
                     book.getRemoteUrl()?.let {

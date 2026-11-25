@@ -1196,6 +1196,9 @@
     <string name="read_record_month_label">本月</string>
     <string name="read_record_total_label">累计</string>
     <string name="read_record_active_days_label">活跃日</string>
+    <string name="read_record_switch">记录阅读时长</string>
+    <string name="read_record_switch_on">已恢复记录这本书的阅读时长</string>
+    <string name="read_record_switch_off">已屏蔽这本书的阅读时长与阅读记录</string>
     <string name="read_record_stats_ready">已持续累计每日阅读时长</string>
     <string name="read_record_stats_waiting">继续阅读后会开始生成日统计和热力图</string>
     <string name="read_record_empty_recent_books">暂无最近在读</string>

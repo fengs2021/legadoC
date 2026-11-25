@@ -34,6 +34,7 @@ import io.legado.app.exception.ContentEmptyException
 import io.legado.app.help.AppWebDav
 import io.legado.app.help.CacheManager
 import io.legado.app.help.ReadRecordDailyHelper
+import io.legado.app.help.ReadRecordHelp
 import io.legado.app.help.book.getDanmaku
 import io.legado.app.help.book.update
 import io.legado.app.help.config.AppConfig
@@ -649,7 +650,8 @@ object VideoPlay : CoroutineScope by MainScope(){
 
     fun upReadTime() {
         val book = book ?: return
-        if (!inBookshelf || !AppConfig.enableReadRecord) {
+        // 视频一律不记录阅读时长与阅读记录，判定统一在 ReadRecordHelp
+        if (!inBookshelf || !ReadRecordHelp.shouldRecord(book)) {
             markReadStart()
             return
         }

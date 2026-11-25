@@ -1451,6 +1451,9 @@
     <string name="read_record_month_label">This month</string>
     <string name="read_record_total_label">Total</string>
     <string name="read_record_active_days_label">Active days</string>
+    <string name="read_record_switch">Record reading time</string>
+    <string name="read_record_switch_on">Reading time is recorded for this book again</string>
+    <string name="read_record_switch_off">This book no longer records reading time</string>
     <string name="read_record_stats_ready">Daily reading time is being tracked continuously</string>
     <string name="read_record_stats_waiting">Continue reading to build daily stats and heatmap</string>
     <string name="read_record_empty_recent_books">No recent book found</string>

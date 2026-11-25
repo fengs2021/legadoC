@@ -13,6 +13,7 @@ import io.legado.app.data.entities.ReadRecord
 import io.legado.app.help.AppWebDav
 import io.legado.app.help.ConcurrentRateLimiter
 import io.legado.app.help.ReadRecordDailyHelper
+import io.legado.app.help.ReadRecordHelp
 import io.legado.app.help.book.BookHelp
 import io.legado.app.help.book.CacheManifestHelper
 import io.legado.app.help.book.ContentProcessor
@@ -136,13 +137,17 @@ object ReadManga : CoroutineScope by MainScope() {
     //每次切换章节更新阅读记录
     fun upReadTime() {
         executor.execute {
-            if (!AppConfig.enableReadRecord) {
-                return@execute
-            }
             val now = System.currentTimeMillis()
             val delta = now - readStartTime
-            readRecord.readTime += delta
+            // 起点无条件推进，避免屏蔽期间的时间在恢复记录后被一次性计入
             readStartTime = now
+            if (!ReadRecordHelp.shouldRecord(book)) {
+                return@execute
+            }
+            if (delta <= 0L) {
+                return@execute
+            }
+            readRecord.readTime += delta
             readRecord.lastRead = now
             appDb.readRecordDao.insert(readRecord)
             ReadRecordDailyHelper.record(delta, now)
