@@ -1,6 +1,7 @@
 package io.legado.app.plugin.jread
 
 import io.legado.app.constant.AppLog
+import io.legado.app.help.tts.TtsPreviewPlayer
 import io.legado.app.help.tts.TtsVoicePreviewer
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -21,7 +22,7 @@ object DoubaoVoicePreviewer : TtsVoicePreviewer {
             runCatching {
                 DoubaoTtsClient.synthesize(text = text, voiceId = resolved)
             }.onSuccess { result ->
-                JReadPreview.play(result.wav)
+                TtsPreviewPlayer.play(result.wav)
             }.onFailure {
                 AppLog.put("豆包试听失败：${DoubaoVoices.describe(resolved)}\n${it.localizedMessage}", it, true)
             }
