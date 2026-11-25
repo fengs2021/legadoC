@@ -1,4 +1,4 @@
-package io.legado.app.plugin.jread
+package io.legado.app.plugin.doubao
 
 import android.util.Base64
 import io.legado.app.constant.AppLog

@@ -4,7 +4,7 @@
     <application>
 
         <service
-            android:name=".plugin.jread.DoubaoReadAloudService"
+            android:name=".plugin.doubao.DoubaoReadAloudService"
             android:foregroundServiceType="mediaPlayback" />
 
     </application>

@@ -2,9 +2,9 @@ package io.legado.app.plugin
 
 import android.content.Context
 import io.legado.app.help.tts.TtsVoicePreviewers
-import io.legado.app.plugin.jread.DoubaoEnginePlugin
-import io.legado.app.plugin.jread.DoubaoVoiceDirectory
-import io.legado.app.plugin.jread.DoubaoVoicePreviewer
+import io.legado.app.plugin.doubao.DoubaoEnginePlugin
+import io.legado.app.plugin.doubao.DoubaoVoiceDirectory
+import io.legado.app.plugin.doubao.DoubaoVoicePreviewer
 
 /**
  * 自用构建（app flavor）插件引导。

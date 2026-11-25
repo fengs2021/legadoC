@@ -2813,8 +2813,6 @@
     <string name="agent_tools">工具设置</string>
     <string name="agent_loading">正在加载 Agent 配置…</string>
     <string name="agent_internal_switch_summary">内部 Agent 总开关；关闭后停止当前任务，对外 MCP 服务不受影响</string>
-    <string name="plugin_engine_manage_title">语音插件管理</string>
-    <string name="plugin_engine_manage_summary">导入、更新、启停内置语音插件</string>
     <string name="read_aloud_log_title">朗读日志</string>
     <string name="read_aloud_log_summary">查看最近朗读/合成过程，便于排查失败原因</string>
     <string name="tts_voice_search_hint">搜索音色名称或 ID</string>

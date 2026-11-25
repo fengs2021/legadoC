@@ -1,4 +1,4 @@
-package io.legado.app.plugin.jread
+package io.legado.app.plugin.doubao
 
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken

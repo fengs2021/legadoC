@@ -28,7 +28,6 @@ import io.legado.app.lib.prefs.SwitchPreference
 import io.legado.app.lib.prefs.fragment.PreferenceFragment
 import io.legado.app.lib.theme.primaryColor
 import io.legado.app.model.ReadAloud
-import io.legado.app.plugin.ReadAloudEngines
 import io.legado.app.service.BaseReadAloudService
 import io.legado.app.utils.StringUtils
 import io.legado.app.utils.postEvent
@@ -90,7 +89,6 @@ class ReadAloudConfigDialog : BasePrefDialogFragment() {
         override fun onCreatePreferences(savedInstanceState: Bundle?, rootKey: String?) {
             addPreferencesFromResource(R.xml.pref_config_aloud)
             initReadAloudLogEntry()
-            initPluginEngineEntry()
             upSpeakEngineSummary()
             initPhoneCallPausePreference()
             initFloatOnDesktopPreference()
@@ -138,26 +136,6 @@ class ReadAloudConfigDialog : BasePrefDialogFragment() {
                 }
                 .setNegativeButton("关闭", null)
                 .show()
-        }
-
-        /**
-         * 内置插件引擎的设置入口：插件由各构建注册（开源构建为空），
-         * 这里只经 [ReadAloudEngines] 取 manageActivityClass，主代码不引用具体插件类型。
-         */
-        private fun initPluginEngineEntry() {
-            val preference = findPreference<Preference>("plugin_engine_manage") ?: return
-            val plugin = ReadAloudEngines.all.firstOrNull { it.manageActivityClass != null }
-            if (plugin == null) {
-                preference.isVisible = false
-                return
-            }
-            preference.summary = plugin.engineLabel
-            preference.setOnPreferenceClickListener {
-                plugin.manageActivityClass?.let { activityClass ->
-                    startActivity(android.content.Intent(requireContext(), activityClass))
-                }
-                true
-            }
         }
 
         override fun onViewCreated(view: View, savedInstanceState: Bundle?) {

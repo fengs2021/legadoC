@@ -1,4 +1,4 @@
-package io.legado.app.plugin.jread
+package io.legado.app.plugin.doubao
 
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
