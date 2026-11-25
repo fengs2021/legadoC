@@ -246,10 +246,12 @@ abstract class BaseActivity<VB : ViewBinding>(
             } else {
                 overflowButton.setOnTouchListener(null)
                 overflowButton.setOnClickListener {
-                    val overflowItems = menu.surfaceOverflowItems()
-                    if (overflowItems.isEmpty()) return@setOnClickListener
                     surfaceOverflowPopup?.dismiss()
                     dispatchSurfaceMenuOpened(menu)
+                    // 显隐必须在派发 onSurfaceMenuOpened 之后再取：宿主 Activity 的
+                    // 菜单状态初始化挂在该回调里，先取列表会把刚被设为不可见的项一并渲染。
+                    val overflowItems = menu.surfaceOverflowItems()
+                    if (overflowItems.isEmpty()) return@setOnClickListener
                     surfaceOverflowPopup = SurfacePopupMenu(this, toolbar).apply {
                         setOnDismissListener {
                             dispatchSurfaceMenuClosed(menu)

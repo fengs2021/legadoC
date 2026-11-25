@@ -384,6 +384,21 @@ class BookInfoActivity :
     }
 
     override fun onMenuOpened(featureId: Int, menu: Menu): Boolean {
+        upMenuState(menu)
+        return super.onMenuOpened(featureId, menu)
+    }
+
+    /**
+     * 自绘溢出菜单（BaseActivity.installSurfaceOverflow → SurfacePopupMenu）弹出前
+     * 只派发 onSurfaceMenuOpened，不会触发 onMenuOpened。菜单项的显隐与勾选必须挂在这里，
+     * 否则永远停留在 XML 初始值：该隐藏的项照样显示，可勾选项从不打勾。
+     */
+    override fun onSurfaceMenuOpened(menu: Menu) {
+        super.onSurfaceMenuOpened(menu)
+        upMenuState(menu)
+    }
+
+    private fun upMenuState(menu: Menu) {
         menu.findItem(R.id.menu_can_update)?.isChecked =
             viewModel.bookData.value?.canUpdate ?: true
         menu.findItem(R.id.menu_split_long_chapter)?.isChecked =
@@ -404,11 +419,12 @@ class BookInfoActivity :
             LocalConfig.bookInfoDeleteAlert
         menu.findItem(R.id.menu_record_read_time)?.let { item ->
             val book = viewModel.bookData.value
-            // 视频一律不记录，开关对它无意义；全局记录关闭时也隐藏
-            item.isVisible = book != null && !book.isVideo && AppConfig.enableReadRecord
-            item.isChecked = book != null && !AppConfig.isReadRecordExcluded(book.bookUrl)
+            // 视频一律不记录，开关对它无意义；全局记录关闭时也隐藏。
+            // 书籍数据未就绪时不做隐藏，避免开关凭空消失。
+            item.isVisible = (book == null || !book.isVideo) && AppConfig.enableReadRecord
+            // 默认记录：未被排除即勾选（勾号由 SurfacePopupMenu 按 isChecked 渲染）
+            item.isChecked = book == null || !AppConfig.isReadRecordExcluded(book.bookUrl)
         }
-        return super.onMenuOpened(featureId, menu)
     }
 
     override fun onCompatOptionsItemSelected(item: MenuItem): Boolean {
