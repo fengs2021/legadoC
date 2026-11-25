@@ -932,6 +932,10 @@
     <string name="skip_next">Next</string>
     <string name="music">Music</string>
     <string name="audio">Audio</string>
+    <string name="discover_source_type_all">All</string>
+    <string name="discover_source_type_text">Text</string>
+    <string name="discover_source_type_audio">Audio</string>
+    <string name="discover_source_type_video">Video</string>
     <string name="is_enable">Enable</string>
     <string name="enable_js">Enable js</string>
     <string name="load_with_base_url">Load BaseUrl</string>

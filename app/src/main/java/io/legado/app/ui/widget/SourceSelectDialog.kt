@@ -16,6 +16,7 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import io.legado.app.R
 import io.legado.app.lib.theme.UiCorner
+import io.legado.app.lib.theme.accentColor
 import io.legado.app.lib.theme.applyUiBodyTypeface
 import io.legado.app.lib.theme.applyUiLabelStyle
 import io.legado.app.lib.theme.applyUiSectionTitleStyle
@@ -27,6 +28,13 @@ import io.legado.app.utils.dpToPx
 
 object SourceSelectDialog {
 
+    /**
+     * 通用书源选择弹窗。
+     *
+     * [typeFilters] 非空时在搜索框上方显示一行分类 chip；每项为 (类型值, 标签字符串资源)，
+     * 类型值为 null 表示“全部”。调用方需同时提供 [typeOf] 从条目取类型值。
+     * RSS 等没有类型概念的调用方不传这两个参数，界面与旧版完全一致。
+     */
     fun <T> show(
         context: android.content.Context,
         title: CharSequence,
@@ -36,11 +44,16 @@ object SourceSelectDialog {
         searchTexts: (T) -> List<String>,
         searchHint: String?,
         itemKey: (T) -> String,
+        typeFilters: List<Pair<Int?, Int>>? = null,
+        typeOf: ((T) -> Int)? = null,
         onSelect: (T) -> Unit
     ) {
         if (items.isEmpty()) return
         var dialog: AlertDialog? = null
+        var keyword = ""
+        var activeType: Int? = null
         var filteredItems = items.toList()
+
         val adapter = object : RecyclerView.Adapter<SourceViewHolder>() {
             override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): SourceViewHolder {
                 return SourceViewHolder(SourceOptionView(parent.context))
@@ -57,6 +70,20 @@ object SourceSelectDialog {
                 }
             }
         }
+
+        fun applyFilter() {
+            filteredItems = items.filter { item ->
+                val typeOk = activeType == null || (typeOf?.invoke(item) == activeType)
+                if (!typeOk) return@filter false
+                if (keyword.isBlank()) {
+                    true
+                } else {
+                    searchTexts(item).any { text -> text.contains(keyword, true) }
+                }
+            }
+            adapter.notifyDataSetChanged()
+        }
+
         val searchView = SearchView(context).apply {
             queryHint = searchHint ?: context.getString(R.string.screen)
             setIconifiedByDefault(false)
@@ -75,15 +102,8 @@ object SourceSelectDialog {
                 override fun onQueryTextSubmit(query: String?): Boolean = true
 
                 override fun onQueryTextChange(newText: String?): Boolean {
-                    val key = newText.orEmpty().trim()
-                    filteredItems = if (key.isBlank()) {
-                        items
-                    } else {
-                        items.filter { item ->
-                            searchTexts(item).any { text -> text.contains(key, true) }
-                        }
-                    }
-                    adapter.notifyDataSetChanged()
+                    keyword = newText.orEmpty().trim()
+                    applyFilter()
                     return true
                 }
             })
@@ -132,6 +152,48 @@ object SourceSelectDialog {
                     42.dpToPx()
                 )
             )
+            if (!typeFilters.isNullOrEmpty() && typeOf != null) {
+                val chipRow = LinearLayout(context).apply {
+                    orientation = LinearLayout.HORIZONTAL
+                    layoutParams = LinearLayout.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        ViewGroup.LayoutParams.WRAP_CONTENT
+                    ).apply { topMargin = 8.dpToPx() }
+                }
+                val chips = mutableListOf<TextView>()
+                typeFilters.forEach { (type, labelRes) ->
+                    val chip = TextView(context).apply {
+                        text = context.getString(labelRes)
+                        applyUiLabelStyle(context)
+                        textSize = 13f
+                        includeFontPadding = false
+                        gravity = Gravity.CENTER
+                        isSelected = type == activeType
+                        setTextColor(if (isSelected) Color.WHITE else primaryTextColor(context))
+                        background = UiCorner.dialogActionSelector(
+                            UiCorner.themeSurfaceMutedColor(context),
+                            context.accentColor,
+                            UiCorner.actionRadius(context)
+                        )
+                        setPadding(14.dpToPx(), 6.dpToPx(), 14.dpToPx(), 6.dpToPx())
+                        layoutParams = LinearLayout.LayoutParams(
+                            ViewGroup.LayoutParams.WRAP_CONTENT,
+                            ViewGroup.LayoutParams.WRAP_CONTENT
+                        ).apply { marginEnd = 8.dpToPx() }
+                        setOnClickListener {
+                            activeType = type
+                            chips.forEach { it.isSelected = (it == this@apply) }
+                            chips.forEach { c ->
+                                c.setTextColor(if (c.isSelected) Color.WHITE else primaryTextColor(context))
+                            }
+                            applyFilter()
+                        }
+                    }
+                    chips.add(chip)
+                    chipRow.addView(chip)
+                }
+                addView(chipRow)
+            }
             addView(recyclerView)
         }
         dialog = AlertDialog.Builder(context)

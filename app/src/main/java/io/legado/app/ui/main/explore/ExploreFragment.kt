@@ -37,6 +37,7 @@ import com.script.rhino.runScriptWithContext
 import io.legado.app.R
 import io.legado.app.base.VMBaseFragment
 import io.legado.app.constant.AppLog
+import io.legado.app.constant.BookSourceType
 import io.legado.app.data.AppDatabase
 import io.legado.app.data.appDb
 import io.legado.app.data.entities.BookSource
@@ -750,7 +751,14 @@ class ExploreFragment() : VMBaseFragment<ExploreViewModel>(R.layout.fragment_exp
             searchTexts = {
                 listOfNotNull(it.bookSourceName, it.bookSourceUrl, it.bookSourceGroup)
             },
-            itemKey = { it.bookSourceUrl }
+            itemKey = { it.bookSourceUrl },
+            typeFilters = listOf(
+                null to R.string.discover_source_type_all,
+                BookSourceType.default to R.string.discover_source_type_text,
+                BookSourceType.audio to R.string.discover_source_type_audio,
+                BookSourceType.video to R.string.discover_source_type_video
+            ),
+            typeOf = { it.bookSourceType }
         ) {
             selectDiscoverSource(it)
         }
