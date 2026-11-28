@@ -23,7 +23,7 @@ import io.legado.app.help.sound.AloudSoundImporter
 import io.legado.app.help.sound.AloudSoundStore
 import io.legado.app.help.sound.BgmTrack
 import io.legado.app.help.sound.BookAloudSoundConfig
-import io.legado.app.help.sound.OnlineSoundLibrary
+import io.legado.app.help.sound.SoundPackManager
 import io.legado.app.help.sound.SoundEffectRule
 import io.legado.app.lib.dialogs.alert
 import io.legado.app.lib.theme.accentColor
@@ -348,12 +348,12 @@ class AloudSoundConfigActivity : BaseActivity<ActivityAloudSoundConfigBinding>()
 
     private fun previewRule(rule: SoundEffectRule) {
         if (rule.isLibrary) {
-            val url = OnlineSoundLibrary.remoteUrl(rule.libraryName)
-            if (url == null) {
+            val file = SoundPackManager.findByName(rule.libraryName)
+            if (file == null) {
                 toastOnUi(R.string.aloud_sound_import_none)
                 return
             }
-            previewUrl(url)
+            previewAudio(file.absolutePath)
             return
         }
         previewAudio(rule.filePath)
@@ -385,12 +385,18 @@ class AloudSoundConfigActivity : BaseActivity<ActivityAloudSoundConfigBinding>()
      * 在线音效库：搜索内置索引，条目可直接试听（流式），点「添加」写进本书规则。
      * 规则只存库内文件名，音频在朗读挂载时按需下载缓存。
      */
+    /**
+     * 从已下载的音效库挑选：整包下载后在这里按名字搜索，选中即生成本书手动规则。
+     *
+     * AI 匹配是主路径；这里用于局部覆盖，比如某本书固定要某个脚步声。
+     */
     private fun showLibraryDialog() {
-        if (!OnlineSoundLibrary.isAvailable) {
+        val all = downloadedLibraryEntries()
+        if (all.isEmpty()) {
             toastOnUi(R.string.aloud_sound_import_none)
             return
         }
-        var entries = OnlineSoundLibrary.search(null, LIBRARY_PAGE_LIMIT)
+        var entries = all.take(LIBRARY_PAGE_LIMIT)
         val listAdapter = object : RecyclerView.Adapter<LibraryHolder>() {
             override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): LibraryHolder {
                 val row = LinearLayout(this@AloudSoundConfigActivity).apply {
@@ -445,24 +451,23 @@ class AloudSoundConfigActivity : BaseActivity<ActivityAloudSoundConfigBinding>()
 
             override fun onBindViewHolder(holder: LibraryHolder, position: Int) {
                 val entry = entries[position]
-                holder.name.text = entry.displayName
-                val added = config.effectRules.any { it.libraryName == entry.fileName }
-                holder.preview.setOnClickListener {
-                    OnlineSoundLibrary.remoteUrl(entry.fileName)?.let { previewUrl(it) }
-                }
+                holder.name.text = entry.name
+                val added = config.effectRules.any { it.filePath == entry.file.absolutePath }
+                holder.preview.setOnClickListener { previewAudio(entry.file.absolutePath) }
                 holder.add.text = getString(
                     if (added) R.string.aloud_sound_library_added else R.string.aloud_sound_library_add
                 )
                 holder.add.isEnabled = !added
                 holder.add.setOnClickListener {
-                    if (config.effectRules.any { it.libraryName == entry.fileName }) return@setOnClickListener
+                    if (config.effectRules.any { it.filePath == entry.file.absolutePath }) {
+                        return@setOnClickListener
+                    }
                     val rule = SoundEffectRule(
                         id = UUID.randomUUID().toString(),
-                        name = entry.displayName,
-                        pattern = entry.keywords,
+                        name = entry.name,
+                        pattern = AloudSoundImporter.defaultKeywords(entry.name),
                         isRegex = false,
-                        filePath = "",
-                        libraryName = entry.fileName,
+                        filePath = entry.file.absolutePath,
                         volume = 1f,
                         cooldownMs = 1500L
                     )
@@ -490,7 +495,13 @@ class AloudSoundConfigActivity : BaseActivity<ActivityAloudSoundConfigBinding>()
             setOnQueryTextListener(object : SearchView.OnQueryTextListener {
                 override fun onQueryTextSubmit(query: String?): Boolean = true
                 override fun onQueryTextChange(newText: String?): Boolean {
-                    entries = OnlineSoundLibrary.search(newText, LIBRARY_PAGE_LIMIT)
+                    val key = newText.orEmpty().trim()
+                    entries = if (key.isBlank()) {
+                        all.take(LIBRARY_PAGE_LIMIT)
+                    } else {
+                        all.filter { it.name.contains(key, ignoreCase = true) }
+                            .take(LIBRARY_PAGE_LIMIT)
+                    }
                     listAdapter.notifyDataSetChanged()
                     return true
                 }
@@ -520,6 +531,21 @@ class AloudSoundConfigActivity : BaseActivity<ActivityAloudSoundConfigBinding>()
             .setNegativeButton(R.string.cancel, null)
             .show()
     }
+
+    private data class LibEntry(val name: String, val file: File)
+
+    /** 已下载到本地的音效库音频（跨包合并，供手动挑选）。 */
+    private fun downloadedLibraryEntries(): List<LibEntry> =
+        SoundPackManager.packs().flatMap { pack ->
+            pack.files.mapNotNull { relative ->
+                val file = SoundPackManager.localFile(pack, relative)
+                if (file.isFile && file.length() > 0) {
+                    LibEntry(relative.substringAfterLast('/').substringBeforeLast('.'), file)
+                } else {
+                    null
+                }
+            }
+        }
 
     private class LibraryHolder(
         root: LinearLayout,

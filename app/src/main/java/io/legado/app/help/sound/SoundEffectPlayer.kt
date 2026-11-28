@@ -17,6 +17,7 @@ import java.io.File
 class SoundEffectPlayer {
 
     private val soundIds = HashMap<String, Int>()      // ruleId -> soundId
+    private val adhocIds = HashMap<String, Int>()      // 文件路径 -> soundId（AI 时间线用）
     private val pending = HashMap<Int, String>()       // sampleId -> ruleId
     private val loadedPaths = HashMap<String, String>() // ruleId -> filePath
     private val lastPlayAt = HashMap<String, Long>()   // ruleId -> 上次触发时间
@@ -64,11 +65,47 @@ class SoundEffectPlayer {
         compiledRules.forEach { prepared ->
             val rule = prepared.rule
             if (rule.isLibrary) {
-                // 已缓存的库条目直接加载；未缓存的等下载完成回调 attachResolved
-                OnlineSoundLibrary.cachedFile(rule.libraryName)?.let { load(rule.id, it) }
+                // 走整包下载的音效库：按名字在已下载文件里找
+                SoundPackManager.findByName(rule.libraryName)?.let { load(rule.id, it) }
             } else {
                 load(rule.id, File(rule.filePath))
             }
+        }
+    }
+
+    /**
+     * 预加载一批音频文件（AI 时间线用到的音效），让触发时不再等待加载。
+     */
+    fun preloadFiles(files: List<File>) {
+        files.forEach { file ->
+            val path = file.absolutePath
+            if (adhocIds.containsKey(path) || !file.isFile) return@forEach
+            runCatching {
+                adhocIds[path] = soundPool.load(path, 1)
+            }.onFailure {
+                AppLog.put("音效预加载失败：$path", it)
+            }
+        }
+    }
+
+    /** 直接播放一个音频文件（AI 时间线触发），与规则音效互不影响。 */
+    fun playFile(file: File, volume: Float) {
+        val v = volume.coerceIn(0f, 1f)
+        if (v <= 0f) return
+        val path = file.absolutePath
+        val existing = adhocIds[path]
+        if (existing == null) {
+            if (!file.isFile) return
+            runCatching {
+                val sampleId = soundPool.load(path, 1)
+                adhocIds[path] = sampleId
+            }.onFailure { AppLog.put("音效加载失败：$path", it) }
+            return
+        }
+        runCatching {
+            soundPool.play(existing, v, v, 1, 0, 1f)
+        }.onFailure {
+            AppLog.put("音效播放失败：$path", it)
         }
     }
 
@@ -135,6 +172,7 @@ class SoundEffectPlayer {
 
     fun release() {
         runCatching { soundPool.release() }
+        adhocIds.clear()
         soundIds.clear()
         synchronized(pending) { pending.clear() }
         loadedPaths.clear()

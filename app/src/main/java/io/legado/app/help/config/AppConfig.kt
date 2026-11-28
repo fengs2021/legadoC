@@ -1654,6 +1654,14 @@ object AppConfig : SharedPreferences.OnSharedPreferenceChangeListener {
         get() = appCtx.getPrefInt(PreferKey.aloudSoundEffectVolume, 80).coerceIn(0, 100)
         set(value) = appCtx.putPrefInt(PreferKey.aloudSoundEffectVolume, value.coerceIn(0, 100))
 
+    /**
+     * 朗读时用 AI 匹配音效与配乐：按章分析文本，决定第几段第几个字放哪个音效。
+     * 关闭后只走本书手动规则的关键词匹配。
+     */
+    var aloudSoundAiMatch: Boolean
+        get() = appCtx.getPrefBoolean(PreferKey.aloudSoundAiMatch, true)
+        set(value) = appCtx.putPrefBoolean(PreferKey.aloudSoundAiMatch, value)
+
     val replaceEnableDefault get() = appCtx.getPrefBoolean(PreferKey.replaceEnableDefault, true)
 
     val webDavDir get() = appCtx.getPrefString(PreferKey.webDavDir, "legado")

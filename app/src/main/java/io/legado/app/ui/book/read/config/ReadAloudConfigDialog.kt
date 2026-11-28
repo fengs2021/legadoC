@@ -24,6 +24,7 @@ import io.legado.app.lib.dialogs.showDecimalInputDialog
 import io.legado.app.lib.dialogs.showIntegerInputDialog
 import io.legado.app.lib.permission.Permissions
 import io.legado.app.lib.permission.PermissionsCompat
+import io.legado.app.help.sound.SoundPackManager
 import io.legado.app.lib.prefs.SwitchPreference
 import io.legado.app.lib.prefs.fragment.PreferenceFragment
 import io.legado.app.lib.theme.primaryColor
@@ -89,6 +90,7 @@ class ReadAloudConfigDialog : BasePrefDialogFragment() {
         override fun onCreatePreferences(savedInstanceState: Bundle?, rootKey: String?) {
             addPreferencesFromResource(R.xml.pref_config_aloud)
             initReadAloudLogEntry()
+            initSoundPackEntry()
             upSpeakEngineSummary()
             initPhoneCallPausePreference()
             initFloatOnDesktopPreference()
@@ -98,6 +100,22 @@ class ReadAloudConfigDialog : BasePrefDialogFragment() {
             upProgressPollIntervalSummary()
             upBluetoothReadAloudSkipIntervalSummary()
             upPlaybackPanelDurationSummary()
+        }
+
+        /** 下载音效和音乐：整包下载音效库与配乐库，之后由 AI 在朗读时匹配。 */
+        private fun initSoundPackEntry() {
+            val preference = findPreference<Preference>("aloudSoundPackDownload") ?: return
+            val downloaded = SoundPackManager.states().sumOf { it.downloaded }
+            val total = SoundPackManager.states().sumOf { it.total }
+            preference.summary = getString(R.string.aloud_pack_download_summary) +
+                "（本地已有 $downloaded / $total）"
+            preference.setOnPreferenceClickListener {
+                val activity = activity as? androidx.fragment.app.FragmentActivity
+                if (activity != null) {
+                    SoundPackDialog.show(activity)
+                }
+                true
+            }
         }
 
         /** 朗读日志：查看/复制最近合成与播放过程，排查引擎失败的原因。 */

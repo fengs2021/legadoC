@@ -21,6 +21,19 @@
         app:allowDividerBelow="false"
         app:iconSpaceReserved="false">
 
+        <io.legado.app.lib.prefs.Preference
+            android:key="aloudSoundPackDownload"
+            android:summary="@string/aloud_pack_download_summary"
+            android:title="@string/aloud_pack_download_title"
+            app:iconSpaceReserved="false" />
+
+        <io.legado.app.lib.prefs.SwitchPreference
+            android:defaultValue="true"
+            android:key="aloudSoundAiMatch"
+            android:summary="@string/aloud_pack_ai_match_summary"
+            android:title="@string/aloud_pack_ai_match"
+            app:iconSpaceReserved="false" />
+
         <io.legado.app.lib.prefs.SwitchPreference
             android:defaultValue="false"
             android:key="aloudSoundEffectEnabled"

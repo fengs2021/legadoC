@@ -627,10 +627,10 @@ class DoubaoReadAloudService : BaseReadAloudService(), Player.Listener {
             withContext(Dispatchers.Main) {
                 currentChunks = playChunks
                 currentChunkIndex = 0
-                // 换章时切换背景音乐；同章重复调用由引擎内部去重
-                soundEngine.onChapterChanged(currentChapterIndex)
-                // 段开始：命中音效规则即触发，同时压低背景音乐
-                soundEngine.onSegmentStarted(text)
+                // 换章：把本章段落交给引擎，供 AI 匹配音效（已有缓存时不重复请求）
+                soundEngine.onChapterChanged(currentChapterIndex, contentList)
+                // 段开始：重置本段 cue，触发关键词规则，同时压低背景音乐
+                soundEngine.onSegmentStarted(nowSpeak, text)
                 exoPlayer.clearMediaItems()
                 files.forEach { file ->
                     exoPlayer.addMediaItem(MediaItem.fromUri(android.net.Uri.fromFile(file)))
@@ -771,6 +771,8 @@ class DoubaoReadAloudService : BaseReadAloudService(), Player.Listener {
                     (position / lastCharDurationMs.coerceAtLeast(1L)).toInt()
                 }
                 upTtsProgress(readAloudNumber + chunkStart + offset + 1)
+                // 段内进度：AI 时间线里落在本段第几个字的音效到点触发
+                soundEngine.onSegmentProgress(chunkStart + offset)
                 if (exoPlayer.playbackState == Player.STATE_ENDED) break
                 delay(lastCharDurationMs.coerceAtLeast(20L))
             }

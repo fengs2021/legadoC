@@ -2867,4 +2867,15 @@
     <string name="aloud_sound_library_added">Added</string>
     <string name="aloud_sound_library_empty">No matching sounds</string>
     <string name="aloud_sound_library_from">Add from online library</string>
+    <string name="aloud_pack_download_title">Download sounds and music</string>
+    <string name="aloud_pack_download_summary">Download whole packs first; AI matches them to the story while reading</string>
+    <string name="aloud_pack_state_waiting">Not downloaded</string>
+    <string name="aloud_pack_state_partial">%1$d / %2$d downloaded</string>
+    <string name="aloud_pack_state_done">%1$d files ready</string>
+    <string name="aloud_pack_download_action">Download</string>
+    <string name="aloud_pack_download_running">Downloading %1$s: %2$d / %3$d</string>
+    <string name="aloud_pack_download_finished">Downloaded: %1$s</string>
+    <string name="aloud_pack_none_selected">Select at least one pack</string>
+    <string name="aloud_pack_ai_match">AI sound and music matching</string>
+    <string name="aloud_pack_ai_match_summary">Analyze the chapter with the current AI model to decide sounds and music per segment; off means manual rules only</string>
 </resources>
