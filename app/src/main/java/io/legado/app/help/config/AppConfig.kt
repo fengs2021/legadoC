@@ -1670,6 +1670,14 @@ object AppConfig : SharedPreferences.OnSharedPreferenceChangeListener {
         get() = appCtx.getPrefInt(PreferKey.aloudSoundAnalysisChars, 480).coerceIn(120, 2000)
         set(value) = appCtx.putPrefInt(PreferKey.aloudSoundAnalysisChars, value.coerceIn(120, 2000))
 
+    /**
+     * 思考模式：推理型模型（DeepSeek-R1、QwQ、Xing4.0 等）会先思考再回答，慢且费 token。
+     * 默认关闭（直接出结果），BGM 选曲与音效分析同时生效。
+     */
+    var aloudSoundThinking: Boolean
+        get() = appCtx.getPrefBoolean(PreferKey.aloudSoundThinking, false)
+        set(value) = appCtx.putPrefBoolean(PreferKey.aloudSoundThinking, value)
+
     val replaceEnableDefault get() = appCtx.getPrefBoolean(PreferKey.replaceEnableDefault, true)
 
     val webDavDir get() = appCtx.getPrefString(PreferKey.webDavDir, "legado")

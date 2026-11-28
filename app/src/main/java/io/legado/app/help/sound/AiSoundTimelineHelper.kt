@@ -4,6 +4,7 @@ import com.google.gson.annotations.SerializedName
 import io.legado.app.constant.AppLog
 import io.legado.app.help.ai.AiChatService
 import io.legado.app.help.ai.AiStoryboardConfig
+import io.legado.app.help.config.AppConfig
 import io.legado.app.utils.GSON
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -58,24 +59,15 @@ object AiSoundTimelineHelper {
         val pickEffects: String = ""
     )
 
-    @Volatile
-    private var cachedPrompts: Prompts? = null
-
     private val cacheDir: File
         get() = File(appCtx.filesDir, "aloudSound/timelines").apply { mkdirs() }
 
-    private fun prompts(): Prompts {
-        cachedPrompts?.let { return it }
-        val loaded = runCatching {
-            appCtx.assets.open(PROMPT_ASSET).use { input ->
-                GSON.fromJson(input.reader(Charsets.UTF_8), Prompts::class.java)
-            }
-        }.onFailure {
-            AppLog.put("音效提示词读取失败", it)
-        }.getOrNull() ?: Prompts()
-        cachedPrompts = loaded
-        return loaded
-    }
+    /** 三类提示词各取用户当前启用的那条；未配置时回落到内置默认。 */
+    private fun prompts(): Prompts = Prompts(
+        bgm = AiSoundPromptStore.active(AiSoundPromptStore.Kind.BGM).content,
+        extractKeywords = AiSoundPromptStore.active(AiSoundPromptStore.Kind.EXTRACT).content,
+        pickEffects = AiSoundPromptStore.active(AiSoundPromptStore.Kind.PICK).content
+    )
 
     fun isAvailable(): Boolean = SoundLibraryIndex.isAvailable &&
         runCatching { AiStoryboardConfig.isConfigured() }.getOrDefault(false)
@@ -173,6 +165,7 @@ object AiSoundTimelineHelper {
             model = modelId,
             systemPrompt = prompt.extractKeywords,
             userContent = batch.text,
+            disableThinking = !AppConfig.aloudSoundThinking,
             temperature = 0.2,
             requestTemplate = AiStoryboardConfig.storyboardRequestTemplate
         )
@@ -193,6 +186,7 @@ object AiSoundTimelineHelper {
                     model = modelId,
                     systemPrompt = prompt.extractKeywords,
                     userContent = retryInput,
+                    disableThinking = !AppConfig.aloudSoundThinking,
                     temperature = 0.4,
                     requestTemplate = AiStoryboardConfig.storyboardRequestTemplate
                 )
@@ -214,6 +208,7 @@ object AiSoundTimelineHelper {
             model = modelId,
             systemPrompt = prompt.pickEffects,
             userContent = pickInput,
+            disableThinking = !AppConfig.aloudSoundThinking,
             temperature = 0.3,
             requestTemplate = AiStoryboardConfig.storyboardRequestTemplate
         )
@@ -239,6 +234,7 @@ object AiSoundTimelineHelper {
             model = modelId,
             systemPrompt = prompt.bgm,
             userContent = userContent,
+            disableThinking = !AppConfig.aloudSoundThinking,
             temperature = 0.3,
             requestTemplate = AiStoryboardConfig.storyboardRequestTemplate
         )

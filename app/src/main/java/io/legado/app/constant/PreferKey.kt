@@ -512,6 +512,10 @@ object PreferKey {
     const val aloudSoundEffectVolume = "aloudSoundEffectVolume"
     const val aloudSoundAiMatch = "aloudSoundAiMatch"
     const val aloudSoundAnalysisChars = "aloudSoundAnalysisChars"
+    const val aloudSoundThinking = "aloudSoundThinking"
+    const val aloudSoundPromptBgm = "aloudSoundPromptBgm"
+    const val aloudSoundPromptExtract = "aloudSoundPromptExtract"
+    const val aloudSoundPromptPick = "aloudSoundPromptPick"
 
     const val showReadTitleAddition = "showReadTitleAddition"
     const val readBarStyleFollowPage = "readBarStyleFollowPage"

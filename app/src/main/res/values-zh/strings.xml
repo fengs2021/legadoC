@@ -2712,4 +2712,19 @@
     <string name="aloud_pack_ai_match_summary">朗读前用当前 AI 模型分析本章，决定每段放什么音效与配乐；关闭后只用手动规则</string>
     <string name="aloud_pack_analysis_chars">分析字数</string>
     <string name="aloud_pack_analysis_chars_summary">单批送给 AI 的正文字数，同时决定配乐选曲与音效匹配的批次；越大越省请求但越慢</string>
+    <string name="aloud_prompt_title">AI 提示词</string>
+    <string name="aloud_prompt_kind_bgm">背景音乐选曲</string>
+    <string name="aloud_prompt_kind_extract">音效关键字提取</string>
+    <string name="aloud_prompt_kind_pick">音效选择</string>
+    <string name="aloud_prompt_new">新建提示词</string>
+    <string name="aloud_prompt_edit">编辑</string>
+    <string name="aloud_prompt_delete">删除</string>
+    <string name="aloud_prompt_name">提示词名称</string>
+    <string name="aloud_prompt_content_hint">提示词正文</string>
+    <string name="aloud_prompt_content_required">提示词正文不能为空</string>
+    <string name="aloud_prompt_deleted">已删除</string>
+    <string name="aloud_prompt_builtin_undeletable">内置提示词不能删除，可复制一份再改</string>
+    <string name="aloud_prompt_summary">管理 BGM 选曲、关键字提取、音效选择三类提示词</string>
+    <string name="aloud_pack_thinking">思考模式</string>
+    <string name="aloud_pack_thinking_summary">推理型模型（DeepSeek-R1、QwQ、Xing4.0 等）会先思考再回答，慢且费 token；关闭后直接出结果，实测快十倍。BGM 选曲与音效分析同时生效</string>
 </resources>

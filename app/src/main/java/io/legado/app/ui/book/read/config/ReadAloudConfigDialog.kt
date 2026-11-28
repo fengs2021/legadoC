@@ -91,6 +91,7 @@ class ReadAloudConfigDialog : BasePrefDialogFragment() {
             addPreferencesFromResource(R.xml.pref_config_aloud)
             initReadAloudLogEntry()
             initSoundPackEntry()
+            initSoundPromptEntry()
             upSpeakEngineSummary()
             initPhoneCallPausePreference()
             initFloatOnDesktopPreference()
@@ -113,6 +114,18 @@ class ReadAloudConfigDialog : BasePrefDialogFragment() {
                 val activity = activity as? androidx.fragment.app.FragmentActivity
                 if (activity != null) {
                     SoundPackDialog.show(activity)
+                }
+                true
+            }
+        }
+
+        /** AI 提示词：三类提示词各自可多条、单选启用。 */
+        private fun initSoundPromptEntry() {
+            val preference = findPreference<Preference>("aloudSoundPromptEntry") ?: return
+            preference.setOnPreferenceClickListener {
+                val activity = activity as? androidx.fragment.app.FragmentActivity
+                if (activity != null) {
+                    SoundPromptDialog.show(activity)
                 }
                 true
             }

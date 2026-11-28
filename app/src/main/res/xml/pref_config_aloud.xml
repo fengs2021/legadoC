@@ -27,6 +27,19 @@
             android:title="@string/aloud_pack_download_title"
             app:iconSpaceReserved="false" />
 
+        <io.legado.app.lib.prefs.Preference
+            android:key="aloudSoundPromptEntry"
+            android:summary="@string/aloud_prompt_summary"
+            android:title="@string/aloud_prompt_title"
+            app:iconSpaceReserved="false" />
+
+        <io.legado.app.lib.prefs.SwitchPreference
+            android:defaultValue="false"
+            android:key="aloudSoundThinking"
+            android:summary="@string/aloud_pack_thinking_summary"
+            android:title="@string/aloud_pack_thinking"
+            app:iconSpaceReserved="false" />
+
         <io.legado.app.lib.prefs.SwitchPreference
             android:defaultValue="true"
             android:key="aloudSoundAiMatch"

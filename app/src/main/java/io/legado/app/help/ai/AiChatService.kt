@@ -160,6 +160,10 @@ object AiChatService {
         requestTemplate = AiStructuredRequestTemplate.global
     )
 
+    /**
+     * [disableThinking] 默认关闭思考：结构化补全要的是快和确定，推理模型先思考只会变慢且烧 token。
+     * 需要模型先推理时显式传 false。
+     */
     suspend fun generateStructuredText(
         provider: AiProviderConfig,
         model: String,
@@ -167,6 +171,7 @@ object AiChatService {
         userContent: String,
         temperature: Double = 0.0,
         requestTemplate: String? = null,
+        disableThinking: Boolean = true,
         onRequestAccepted: suspend () -> Unit = {},
         onStreamProgress: suspend (AiStreamProgress) -> Unit = {}
     ): String = generateText(
@@ -177,6 +182,7 @@ object AiChatService {
         temperature = temperature,
         responseFormat = "json_object",
         requestTemplate = requestTemplate,
+        disableThinking = disableThinking,
         onRequestAccepted = onRequestAccepted,
         onStreamProgress = onStreamProgress
     )
@@ -189,6 +195,7 @@ object AiChatService {
         temperature: Double,
         responseFormat: String?,
         requestTemplate: String? = null,
+        disableThinking: Boolean = true,
         onRequestAccepted: suspend () -> Unit = {},
         onStreamProgress: suspend (AiStreamProgress) -> Unit = {}
     ): String {
@@ -229,10 +236,10 @@ object AiChatService {
             options = CompletionRequestOptions(
                 temperature = temperature,
                 responseFormat = responseFormat,
-                    thinkingType = "disabled",
-                    reasoningEffort = "low",
-                    requestTemplate = requestTemplate
-                ),
+                thinkingType = if (disableThinking) "disabled" else "enabled",
+                reasoningEffort = if (disableThinking) "low" else "high",
+                requestTemplate = requestTemplate
+            ),
                 logRequestBody = true
             )
             turn.content.takeIf { it.isNotBlank() } ?: throw AiChatException(

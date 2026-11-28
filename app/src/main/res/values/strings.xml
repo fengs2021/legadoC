@@ -2880,4 +2880,19 @@
     <string name="aloud_pack_ai_match_summary">Analyze the chapter with the current AI model to decide sounds and music per segment; off means manual rules only</string>
     <string name="aloud_pack_analysis_chars">Analysis characters</string>
     <string name="aloud_pack_analysis_chars_summary">Characters sent to the AI per batch; drives both BGM picking and sound matching batches</string>
+    <string name="aloud_prompt_title">AI prompts</string>
+    <string name="aloud_prompt_kind_bgm">BGM picking</string>
+    <string name="aloud_prompt_kind_extract">Sound keyword extraction</string>
+    <string name="aloud_prompt_kind_pick">Sound picking</string>
+    <string name="aloud_prompt_new">New prompt</string>
+    <string name="aloud_prompt_edit">Edit</string>
+    <string name="aloud_prompt_delete">Delete</string>
+    <string name="aloud_prompt_name">Prompt name</string>
+    <string name="aloud_prompt_content_hint">Prompt body</string>
+    <string name="aloud_prompt_content_required">Prompt body cannot be empty</string>
+    <string name="aloud_prompt_deleted">Deleted</string>
+    <string name="aloud_prompt_builtin_undeletable">Built-in prompts cannot be deleted; duplicate one instead</string>
+    <string name="aloud_prompt_summary">Manage BGM, keyword extraction and sound picking prompts</string>
+    <string name="aloud_pack_thinking">Thinking mode</string>
+    <string name="aloud_pack_thinking_summary">Reasoning models (DeepSeek-R1, QwQ, Xing4.0 and alike) think before answering: slower and pricier. Off means answer directly, roughly ten times faster. Applies to both BGM picking and sound analysis</string>
 </resources>
