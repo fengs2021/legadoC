@@ -16,6 +16,61 @@
         app:iconSpaceReserved="false" />
 
     <io.legado.app.lib.prefs.PreferenceCategory
+        android:title="@string/aloud_sound_category"
+        app:allowDividerAbove="false"
+        app:allowDividerBelow="false"
+        app:iconSpaceReserved="false">
+
+        <io.legado.app.lib.prefs.SwitchPreference
+            android:defaultValue="false"
+            android:key="aloudSoundEffectEnabled"
+            android:summary="@string/aloud_sound_effect_enabled_summary"
+            android:title="@string/aloud_sound_effect_enabled"
+            app:iconSpaceReserved="false" />
+
+        <io.legado.app.lib.prefs.SeekBarPreference
+            android:clickable="false"
+            android:defaultValue="80"
+            android:key="aloudSoundEffectVolume"
+            android:summary="@string/aloud_sound_effect_volume_summary_plain"
+            android:title="@string/aloud_sound_effect_volume"
+            app:MaxValue="100"
+            app:MinValue="0"
+            app:iconSpaceReserved="false"
+            app:selectable="false" />
+
+        <io.legado.app.lib.prefs.SwitchPreference
+            android:defaultValue="false"
+            android:key="aloudBgmEnabled"
+            android:summary="@string/aloud_bgm_enabled_summary"
+            android:title="@string/aloud_bgm_enabled"
+            app:iconSpaceReserved="false" />
+
+        <io.legado.app.lib.prefs.SeekBarPreference
+            android:clickable="false"
+            android:defaultValue="30"
+            android:key="aloudBgmVolume"
+            android:summary="@string/aloud_bgm_volume_summary_plain"
+            android:title="@string/aloud_bgm_volume"
+            app:MaxValue="100"
+            app:MinValue="0"
+            app:iconSpaceReserved="false"
+            app:selectable="false" />
+
+        <io.legado.app.lib.prefs.SeekBarPreference
+            android:clickable="false"
+            android:defaultValue="35"
+            android:key="aloudBgmDuckRatio"
+            android:summary="@string/aloud_bgm_duck_summary_plain"
+            android:title="@string/aloud_bgm_duck"
+            app:MaxValue="100"
+            app:MinValue="0"
+            app:iconSpaceReserved="false"
+            app:selectable="false" />
+
+    </io.legado.app.lib.prefs.PreferenceCategory>
+
+    <io.legado.app.lib.prefs.PreferenceCategory
         android:title="@string/aloud_config"
         app:allowDividerAbove="false"
         app:allowDividerBelow="false"

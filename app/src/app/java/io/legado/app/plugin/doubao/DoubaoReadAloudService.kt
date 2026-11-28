@@ -15,6 +15,7 @@ import io.legado.app.help.tts.ChapterStoryboard
 import io.legado.app.help.tts.ReadAloudDebugLog
 import io.legado.app.help.tts.StoryboardSegmentType
 import io.legado.app.help.tts.TtsSpeedPolicy
+import io.legado.app.help.sound.AloudSoundEngine
 import io.legado.app.model.ReadBook
 import io.legado.app.utils.getPrefBoolean
 import splitties.init.appCtx
@@ -40,6 +41,9 @@ class DoubaoReadAloudService : BaseReadAloudService(), Player.Listener {
 
     private val exoPlayer: ExoPlayer by lazy { ExoPlayer.Builder(this).build() }
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+
+    /** AI 朗读的背景音乐与音效：与 TTS 播放器并行，由系统混音。 */
+    private val soundEngine: AloudSoundEngine by lazy { AloudSoundEngine(this, scope) }
 
     private var synthJob: Job? = null
     private var playIndexJob: Job? = null
@@ -511,6 +515,7 @@ class DoubaoReadAloudService : BaseReadAloudService(), Player.Listener {
         synthJob?.cancel()
         playIndexJob?.cancel()
         prefetchJob?.cancel()
+        runCatching { soundEngine.detach() }
         scope.cancel()
         runCatching { exoPlayer.removeListener(this) }
         runCatching { exoPlayer.release() }
@@ -528,6 +533,7 @@ class DoubaoReadAloudService : BaseReadAloudService(), Player.Listener {
         }
         super.play()
         upReadAloudLoading(true)
+        soundEngine.attach(ReadBook.book?.bookUrl, currentChapterIndex)
         playCurrentParagraph()
         scheduleStoryboardPrefetch()
     }
@@ -538,17 +544,20 @@ class DoubaoReadAloudService : BaseReadAloudService(), Player.Listener {
         prefetchJob?.cancel()
         storyboardPrefetchJob?.cancel()
         exoPlayer.stop()
+        soundEngine.detach()
     }
 
     override fun pauseReadAloud(abandonFocus: Boolean) {
         synthJob?.cancel()
         exoPlayer.pause()
+        soundEngine.pause()
         super.pauseReadAloud(abandonFocus)
     }
 
     override fun resumeReadAloud() {
         super.resumeReadAloud()
         if (!exoPlayer.isPlaying) exoPlayer.play()
+        soundEngine.resume()
     }
 
     override fun upSpeechRate(reset: Boolean) {
@@ -618,6 +627,10 @@ class DoubaoReadAloudService : BaseReadAloudService(), Player.Listener {
             withContext(Dispatchers.Main) {
                 currentChunks = playChunks
                 currentChunkIndex = 0
+                // 换章时切换背景音乐；同章重复调用由引擎内部去重
+                soundEngine.onChapterChanged(currentChapterIndex)
+                // 段开始：命中音效规则即触发，同时压低背景音乐
+                soundEngine.onSegmentStarted(text)
                 exoPlayer.clearMediaItems()
                 files.forEach { file ->
                     exoPlayer.addMediaItem(MediaItem.fromUri(android.net.Uri.fromFile(file)))
@@ -774,6 +787,7 @@ class DoubaoReadAloudService : BaseReadAloudService(), Player.Listener {
             Player.STATE_ENDED -> {
                 lastSegmentEndedAt = System.currentTimeMillis()
                 probe("段结束：nowSpeak=" + nowSpeak + " 片段=" + currentChunks.size)
+                soundEngine.onSegmentEnded()
                 advanceParagraph()
             }
             Player.STATE_READY -> upReadAloudLoading(false)

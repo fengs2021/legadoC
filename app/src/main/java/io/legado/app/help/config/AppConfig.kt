@@ -1627,6 +1627,33 @@ object AppConfig : SharedPreferences.OnSharedPreferenceChangeListener {
     val readAloudPanelOnPageFooter
         get() = appCtx.getPrefBoolean(PreferKey.readAloudPanelOnPageFooter, true)
 
+    // ---- AI 朗读音效与背景音乐 ----
+
+    /** 朗读时播放背景音乐；默认关闭，由用户在朗读设置里开启并选曲。 */
+    var aloudBgmEnabled: Boolean
+        get() = appCtx.getPrefBoolean(PreferKey.aloudBgmEnabled, false)
+        set(value) = appCtx.putPrefBoolean(PreferKey.aloudBgmEnabled, value)
+
+    /** 背景音乐音量百分比（0..100），实际再乘曲目自身音量。 */
+    var aloudBgmVolume: Int
+        get() = appCtx.getPrefInt(PreferKey.aloudBgmVolume, 30).coerceIn(0, 100)
+        set(value) = appCtx.putPrefInt(PreferKey.aloudBgmVolume, value.coerceIn(0, 100))
+
+    /** 朗读语音进行时把音乐压低的倍率百分比（0..100）。 */
+    var aloudBgmDuckRatio: Int
+        get() = appCtx.getPrefInt(PreferKey.aloudBgmDuckRatio, 35).coerceIn(0, 100)
+        set(value) = appCtx.putPrefInt(PreferKey.aloudBgmDuckRatio, value.coerceIn(0, 100))
+
+    /** 朗读时按规则触发音效；默认关闭。 */
+    var aloudSoundEffectEnabled: Boolean
+        get() = appCtx.getPrefBoolean(PreferKey.aloudSoundEffectEnabled, false)
+        set(value) = appCtx.putPrefBoolean(PreferKey.aloudSoundEffectEnabled, value)
+
+    /** 音效总音量百分比（0..100），实际再乘规则自身音量。 */
+    var aloudSoundEffectVolume: Int
+        get() = appCtx.getPrefInt(PreferKey.aloudSoundEffectVolume, 80).coerceIn(0, 100)
+        set(value) = appCtx.putPrefInt(PreferKey.aloudSoundEffectVolume, value.coerceIn(0, 100))
+
     val replaceEnableDefault get() = appCtx.getPrefBoolean(PreferKey.replaceEnableDefault, true)
 
     val webDavDir get() = appCtx.getPrefString(PreferKey.webDavDir, "legado")

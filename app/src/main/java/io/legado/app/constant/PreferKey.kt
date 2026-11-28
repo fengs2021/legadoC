@@ -504,6 +504,13 @@ object PreferKey {
     const val titleFontColor = "titleFontColor"
     const val titleFontColorN = "titleFontColorNight"
 
+    // AI 朗读音效与背景音乐
+    const val aloudBgmEnabled = "aloudBgmEnabled"
+    const val aloudBgmVolume = "aloudBgmVolume"
+    const val aloudBgmDuckRatio = "aloudBgmDuckRatio"
+    const val aloudSoundEffectEnabled = "aloudSoundEffectEnabled"
+    const val aloudSoundEffectVolume = "aloudSoundEffectVolume"
+
     const val showReadTitleAddition = "showReadTitleAddition"
     const val readBarStyleFollowPage = "readBarStyleFollowPage"
     const val editFontScale = "editFontScale"

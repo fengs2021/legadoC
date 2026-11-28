@@ -545,6 +545,12 @@ class BookInfoActivity :
                     longToastOnUi(R.string.read_record_switch_off)
                 }
             }
+            R.id.menu_aloud_sound -> viewModel.getBook()?.let { book ->
+                startActivity<io.legado.app.ui.book.read.config.AloudSoundConfigActivity> {
+                    putExtra("bookUrl", book.bookUrl)
+                    putExtra("bookName", book.name)
+                }
+            }
             R.id.menu_upload -> {
                 viewModel.getBook()?.let { book ->
                     book.getRemoteUrl()?.let {
