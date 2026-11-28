@@ -5,14 +5,22 @@ import io.legado.app.utils.GSON
 import splitties.init.appCtx
 
 /**
- * 音效库关键词索引：分类 → 子类 → 「音效名|关键词1|关键词2…」。
+ * 音效库索引与本地检索。
  *
- * 这套索引来自广播剧音效库的整理成果，作用是让「文本 → 候选音效」的粗筛在本地完成：
- * 先按关键词收敛到几十条候选，再交给 AI 决策，避免把几千个音效名整包塞进提示词。
+ * 检索算法直接沿用广播剧音效库的 AI 匹配方案（单字检索）：
+ * 关键词拆成单字 → 过滤停用字 → 按「命中字数」降序、同分按名字短优先排序。
+ * 这套排序是关键：单字匹配会捞回两百多个候选，噪声率 78%~98%，
+ * 但真目标通常命中 2~4 个字，排序后自然浮到前面（平均第 7 名）。
  */
 object SoundLibraryIndex {
 
     private const val ASSET = "sound_library_keywords.json"
+
+    /** 命中极多但毫无区分度的字，必须过滤，否则会捞回上千条无用结果。 */
+    private val STOP_WORDS: Set<Char> = (
+        "的了是一不有着我你他她它们在这那上下中大小多少甲乙丙" +
+            "个把被让给对从向到过还很就都要会能可所只又再"
+        ).toSet()
 
     data class Entry(
         val category: String,
@@ -20,25 +28,27 @@ object SoundLibraryIndex {
         val name: String,
         val keywords: List<String>
     ) {
-        /** 未接入 AI 时的本地兜底匹配：关键词任一命中即算候选。 */
-        fun matches(text: String): Boolean =
-            keywords.any { it.isNotBlank() && text.contains(it, ignoreCase = true) }
+        /** 候选展示与回声用的完整路径：大分组/子分组/音效名 */
+        val path: String get() = "$category/$subCategory/$name"
     }
+
+    data class Scored(
+        val entry: Entry,
+        val hitChars: Int
+    )
 
     @Volatile
     private var cached: List<Entry>? = null
 
     @Volatile
-    private var keywordMap: Map<String, List<Entry>>? = null
+    private var byName: Map<String, Entry>? = null
 
     fun entries(): List<Entry> {
         cached?.let { return it }
         val parsed = runCatching {
             appCtx.assets.open(ASSET).use { input ->
-                val root = GSON.fromJson(
-                    input.reader(Charsets.UTF_8),
-                    Map::class.java
-                ) as? Map<*, *> ?: emptyMap<Any, Any>()
+                val root = GSON.fromJson(input.reader(Charsets.UTF_8), Map::class.java) as? Map<*, *>
+                    ?: emptyMap<Any, Any>()
                 buildList {
                     root.forEach { (categoryKey, subMap) ->
                         val category = categoryKey?.toString().orEmpty()
@@ -63,7 +73,7 @@ object SoundLibraryIndex {
                 }
             }
         }.onFailure {
-            AppLog.put("音效库关键词索引读取失败", it)
+            AppLog.put("音效库索引读取失败", it)
         }.getOrNull().orEmpty()
         cached = parsed
         return parsed
@@ -71,36 +81,38 @@ object SoundLibraryIndex {
 
     val isAvailable: Boolean get() = entries().isNotEmpty()
 
-    /**
-     * 文本粗筛：返回命中的条目，按命中关键词在文本中的位置排序，
-     * [limit] 控制送给 AI 的候选规模。
-     */
-    fun candidatesFor(text: String, limit: Int = 60): List<Entry> {
-        if (text.isBlank()) return emptyList()
-        val all = entries()
-        if (all.isEmpty()) return emptyList()
-        val hits = all.filter { it.matches(text) }
-        if (hits.size <= limit) return hits
-        // 命中词越靠前越相关：用最小命中位置排序，保证同一段里先出现的声音优先
-        return hits.sortedBy { entry ->
-            entry.keywords
-                .map { text.indexOf(it, ignoreCase = true) }
-                .filter { it >= 0 }
-                .minOrNull() ?: Int.MAX_VALUE
-        }.take(limit)
-    }
+    val totalCount: Int get() = entries().size
 
-    /** 名称 → 条目，供播放侧按 AI 返回的音效名解析成实际文件。 */
     fun byName(name: String): Entry? {
-        val map = keywordMap ?: run {
-            val built = entries().groupBy { it.name }
-            keywordMap = built
+        val map = byName ?: run {
+            val built = entries().groupBy { it.name }.mapValues { it.value.first() }
+            byName = built
             built
         }
-        return map[name.trim()]?.firstOrNull()
+        return map[name.trim()]
     }
 
-    /** 全部音效名，用于给 AI 说明可选范围（按分类分组）。 */
-    fun namesByCategory(): Map<String, List<String>> =
-        entries().groupBy { it.category }.mapValues { (_, list) -> list.map { it.name } }
+    /**
+     * 单字检索：与 Z 阅读一致的打分口径。
+     *
+     * @param keywords 模型提炼的关键字（1~2 字）
+     * @param topN 返回条数，方案实测 Top20 召回率 99%
+     */
+    fun searchByKeywords(keywords: List<String>, topN: Int = 20): List<Scored> {
+        val chars = keywords.joinToString("")
+            .filter { it !in STOP_WORDS && !it.isWhitespace() }
+            .toSet()
+        if (chars.isEmpty()) return emptyList()
+        val scored = entries().mapNotNull { entry ->
+            val hit = chars.count { it in entry.name }
+            if (hit <= 0) null else Scored(entry, hit)
+        }
+        if (scored.isEmpty()) return emptyList()
+        return scored
+            .sortedWith(compareByDescending<Scored> { it.hitChars }.thenBy { it.entry.name.length })
+            .take(topN)
+    }
+
+    /** 关键词覆盖不足时的兜底：候选少于阈值即视为模型想偏了。 */
+    const val MIN_CANDIDATES = 15
 }

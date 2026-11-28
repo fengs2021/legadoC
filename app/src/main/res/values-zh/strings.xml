@@ -2710,4 +2710,6 @@
     <string name="aloud_pack_none_selected">请先勾选要下载的包</string>
     <string name="aloud_pack_ai_match">AI 匹配音效与配乐</string>
     <string name="aloud_pack_ai_match_summary">朗读前用当前 AI 模型分析本章，决定每段放什么音效与配乐；关闭后只用手动规则</string>
+    <string name="aloud_pack_analysis_chars">分析字数</string>
+    <string name="aloud_pack_analysis_chars_summary">单批送给 AI 的正文字数，同时决定配乐选曲与音效匹配的批次；越大越省请求但越慢</string>
 </resources>

@@ -2878,4 +2878,6 @@
     <string name="aloud_pack_none_selected">Select at least one pack</string>
     <string name="aloud_pack_ai_match">AI sound and music matching</string>
     <string name="aloud_pack_ai_match_summary">Analyze the chapter with the current AI model to decide sounds and music per segment; off means manual rules only</string>
+    <string name="aloud_pack_analysis_chars">Analysis characters</string>
+    <string name="aloud_pack_analysis_chars_summary">Characters sent to the AI per batch; drives both BGM picking and sound matching batches</string>
 </resources>

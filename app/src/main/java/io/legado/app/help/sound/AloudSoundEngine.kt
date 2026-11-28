@@ -103,7 +103,8 @@ class AloudSoundEngine(
                     bookUrl = url,
                     chapterIndex = index,
                     segments = segments,
-                    bgmNames = downloadedBgmNames()
+                    bgmNames = downloadedBgmNames(),
+                    analysisChars = AppConfig.aloudSoundAnalysisChars
                 )
             }.onSuccess { generated ->
                 if (!attached || index != chapterIndex) return@onSuccess

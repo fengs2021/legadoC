@@ -1662,6 +1662,14 @@ object AppConfig : SharedPreferences.OnSharedPreferenceChangeListener {
         get() = appCtx.getPrefBoolean(PreferKey.aloudSoundAiMatch, true)
         set(value) = appCtx.putPrefBoolean(PreferKey.aloudSoundAiMatch, value)
 
+    /**
+     * AI 音效与配乐的单批分析字数：决定一次请求塞多少正文。
+     * 同时影响 BGM 选曲与音效匹配的分析批次，默认 480 字。
+     */
+    var aloudSoundAnalysisChars: Int
+        get() = appCtx.getPrefInt(PreferKey.aloudSoundAnalysisChars, 480).coerceIn(120, 2000)
+        set(value) = appCtx.putPrefInt(PreferKey.aloudSoundAnalysisChars, value.coerceIn(120, 2000))
+
     val replaceEnableDefault get() = appCtx.getPrefBoolean(PreferKey.replaceEnableDefault, true)
 
     val webDavDir get() = appCtx.getPrefString(PreferKey.webDavDir, "legado")
