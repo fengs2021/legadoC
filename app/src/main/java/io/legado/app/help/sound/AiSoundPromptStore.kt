@@ -29,10 +29,9 @@ object AiSoundPromptStore {
         val kindValue: Kind get() = runCatching { Kind.valueOf(kind) }.getOrDefault(Kind.BGM)
     }
 
-    private const val FILE_NAME = "aloudSound/prompts.json"
     private const val ASSET = "ai_sound_prompts.json"
 
-    private val file: File get() = File(appCtx.filesDir, FILE_NAME)
+    private val file: File get() = AloudSoundPaths.promptFile()
 
     @Volatile
     private var cached: MutableList<PromptSet>? = null

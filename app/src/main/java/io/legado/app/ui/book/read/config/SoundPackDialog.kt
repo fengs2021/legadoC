@@ -20,6 +20,8 @@ import io.legado.app.utils.SurfaceBackdrop
 import io.legado.app.utils.dpToPx
 import io.legado.app.utils.toastOnUi
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.util.concurrent.atomic.AtomicBoolean
@@ -113,34 +115,44 @@ object SoundPackDialog {
                 activity.toastOnUi(R.string.aloud_pack_none_selected)
                 return@setOnClickListener
             }
-            if (!downloading.compareAndSet(false, true)) return@setOnClickListener
-            activity.lifecycleScope.launch {
-                selected.forEach { row ->
-                    row.checkBox.isEnabled = false
-                    SoundPackManager.download(row.packId) { done, total ->
-                        activity.runOnUiThread {
-                            row.status.text = activity.getString(
+            // 下载跑在 SoundPackManager 的后台 scope 里：关掉本对话框、切页、Activity 重建都不会中断
+            selected.forEach { row -> SoundPackManager.start(row.packId) }
+            activity.toastOnUi(
+                activity.getString(
+                    R.string.aloud_pack_download_started,
+                    selected.joinToString("、") { it.packName }
+                )
+            )
+            startProgressWatching(activity, rows)
+        }
+    }
+
+    /** 轮询后台下载进度刷新行；全部停下后自动结束。 */
+    private fun startProgressWatching(activity: FragmentActivity, rows: List<Row>) {
+        activity.lifecycleScope.launch {
+            while (isActive) {
+                var anyRunning = false
+                rows.forEach { row ->
+                    val running = SoundPackManager.isRunning(row.packId)
+                    if (running) anyRunning = true
+                    val progress = SoundPackManager.progress(row.packId)
+                    if (progress != null && (running || progress.done > 0)) {
+                        row.status.text = if (running) {
+                            activity.getString(
                                 R.string.aloud_pack_download_running,
                                 row.packName,
-                                done,
-                                total
+                                progress.done,
+                                progress.total
                             )
-                            row.progress.progress =
-                                if (total <= 0) 0 else (done * 100 / total)
+                        } else {
+                            renderState(activity, progress.done, progress.total)
                         }
+                        row.progress.progress = progress.percent
+                        if (running) row.checkBox.isChecked = false
                     }
-                    row.checkBox.isEnabled = true
-                    val state = SoundPackManager.state(row.packId)
-                    row.status.text = renderState(activity, state?.downloaded ?: 0, state?.total ?: 0)
-                    row.progress.progress = state?.progressPercent ?: 0
                 }
-                downloading.set(false)
-                activity.toastOnUi(
-                    activity.getString(
-                        R.string.aloud_pack_download_finished,
-                        selected.joinToString("、") { it.packName }
-                    )
-                )
+                if (!anyRunning) break
+                delay(800)
             }
         }
     }

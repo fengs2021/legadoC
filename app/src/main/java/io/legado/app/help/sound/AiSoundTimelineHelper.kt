@@ -60,7 +60,7 @@ object AiSoundTimelineHelper {
     )
 
     private val cacheDir: File
-        get() = File(appCtx.filesDir, "aloudSound/timelines").apply { mkdirs() }
+        get() = AloudSoundPaths.timelinesDir()
 
     /** 三类提示词各取用户当前启用的那条；未配置时回落到内置默认。 */
     private fun prompts(): Prompts = Prompts(

@@ -1678,6 +1678,14 @@ object AppConfig : SharedPreferences.OnSharedPreferenceChangeListener {
         get() = appCtx.getPrefBoolean(PreferKey.aloudSoundThinking, false)
         set(value) = appCtx.putPrefBoolean(PreferKey.aloudSoundThinking, value)
 
+    /**
+     * 音效与音乐的存储根目录。留空表示用公共下载目录 Download/yuedu/aloudSound，
+     * 这样重装应用不会丢已下载的素材。
+     */
+    var aloudSoundRootDir: String
+        get() = appCtx.getPrefString(PreferKey.aloudSoundRootDir).orEmpty().trim()
+        set(value) = appCtx.putPrefString(PreferKey.aloudSoundRootDir, value.trim())
+
     val replaceEnableDefault get() = appCtx.getPrefBoolean(PreferKey.replaceEnableDefault, true)
 
     val webDavDir get() = appCtx.getPrefString(PreferKey.webDavDir, "legado")

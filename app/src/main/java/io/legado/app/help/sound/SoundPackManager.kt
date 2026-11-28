@@ -2,31 +2,29 @@ package io.legado.app.help.sound
 
 import io.legado.app.constant.AppLog
 import io.legado.app.help.http.okHttpClient
+import io.legado.app.help.tts.ReadAloudDebugLog
 import io.legado.app.utils.GSON
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
-import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import okhttp3.Request
 import splitties.init.appCtx
 import java.io.File
 import java.net.URLEncoder
-
-/**
- * 音效与音乐整包下载。
- *
- * 对齐 Z 阅读的做法：先把整包素材下到本地，朗读时只按名字取本地文件，
- * 不在朗读过程中联网；因此下载完成度与播放稳定性完全解耦。
- *
- * 清单随 APK 内置（assets/sound_pack_manifest.json），包内只存相对路径，
- * 落地路径 = filesDir/aloudSound/packs/<packId>/<相对路径>。
- */
+import java.util.concurrent.ConcurrentHashMap
 object SoundPackManager {
 
     private const val MANIFEST_ASSET = "sound_pack_manifest.json"
     private const val DOWNLOAD_CONCURRENCY = 4
+    private const val TAG = "音效"
+    /** 单个音效文件平均大小，仅用于估算剩余体积 */
+    private const val AVERAGE_FILE_BYTES = 60_000L
 
     data class Pack(
         val id: String,
@@ -75,8 +73,7 @@ object SoundPackManager {
 
     fun pack(id: String): Pack? = packs().firstOrNull { it.id == id }
 
-    fun packDir(packId: String): File =
-        File(File(appCtx.filesDir, "aloudSound/packs"), packId)
+    fun packDir(packId: String): File = File(AloudSoundPaths.packsDir(), packId)
 
     fun localFile(pack: Pack, relativePath: String): File =
         File(packDir(pack.id), relativePath)
@@ -109,41 +106,78 @@ object SoundPackManager {
         return null
     }
 
+    // ===================== 后台下载调度 =====================
+
+    /** 下载跑在独立 scope 里：关闭对话框、切换页面、Activity 重建都不会中断。 */
+    private val downloadScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private val downloadJobs = ConcurrentHashMap<String, Job>()
+    private val progressMap = ConcurrentHashMap<String, PackProgress>()
+
+    data class PackProgress(
+        val packId: String,
+        val done: Int,
+        val total: Int,
+        val running: Boolean,
+        val failed: Int = 0
+    ) {
+        val percent: Int get() = if (total <= 0) 0 else done * 100 / total
+    }
+
+    fun isRunning(packId: String): Boolean = downloadJobs[packId]?.isActive == true
+
+    fun progress(packId: String): PackProgress? = progressMap[packId]
+
     /**
-     * 下载整包。已存在的文件跳过，因此可反复点击续传。
-     * [onProgress] 回调 (已完成数, 总数)，在 IO 线程触发。
+     * 启动整包下载（已在跑则忽略）。已存在的文件自动跳过，所以这是天然的断点续传：
+     * 中断后再点一次只会补缺的部分。
      */
-    suspend fun download(
-        packId: String,
-        onProgress: (done: Int, total: Int) -> Unit = { _, _ -> }
-    ): Result<Int> = withContext(Dispatchers.IO) {
-        val pack = pack(packId) ?: return@withContext Result.failure(IllegalStateException("未知音效包：$packId"))
-        val pending = pack.files.filter { relative ->
-            val file = localFile(pack, relative)
-            !(file.isFile && file.length() > 0)
-        }
-        if (pending.isEmpty()) {
-            onProgress(pack.total, pack.total)
-            return@withContext Result.success(0)
-        }
-        var done = pack.total - pending.size
-        var failed = 0
-        onProgress(done, pack.total)
-        coroutineScope {
-            pending.chunked(DOWNLOAD_CONCURRENCY).forEach { batch ->
-                if (!isActive) return@coroutineScope
+    fun start(packId: String) {
+        val pack = pack(packId) ?: return
+        if (isRunning(packId)) return
+        ReadAloudDebugLog.add(TAG, "下载开始：" + pack.name + " 共 " + pack.total + " 个文件")
+        downloadJobs[packId] = downloadScope.launch {
+            val pending = pack.files.count { relative ->
+                val file = localFile(pack, relative)
+                !(file.isFile && file.length() > 0)
+            }
+            var done = pack.total - pending
+            progressMap[packId] = PackProgress(packId, done, pack.total, true)
+            var failed = 0
+            val remaining = pack.files.filter { relative ->
+                val file = localFile(pack, relative)
+                !(file.isFile && file.length() > 0)
+            }
+            remaining.chunked(DOWNLOAD_CONCURRENCY).forEach { batch ->
+                if (!isActive) return@launch
                 val results = batch.map { relative ->
                     async { downloadOne(pack, relative) }
                 }.awaitAll()
                 failed += results.count { !it }
                 done += batch.size
-                onProgress(done.coerceAtMost(pack.total), pack.total)
+                progressMap[packId] = PackProgress(packId, done.coerceAtMost(pack.total), pack.total, true, failed)
             }
+            progressMap[packId] = PackProgress(packId, done.coerceAtMost(pack.total), pack.total, false, failed)
+            ReadAloudDebugLog.add(
+                TAG,
+                "下载完成：" + pack.name + " 成功 " + (pack.total - failed) + " / " + pack.total +
+                    (if (failed > 0) "，失败 " + failed + " 个，可再次点击补下" else "")
+            )
         }
-        if (failed > 0) {
-            AppLog.put("音效包 $packId 有 $failed 个文件下载失败，可再次点击续传")
+    }
+
+    fun cancel(packId: String) {
+        downloadJobs.remove(packId)?.cancel()
+        progressMap[packId]?.let { progressMap[packId] = it.copy(running = false) }
+    }
+
+    /** 把「已下载数」换算成体积估算，供界面提示下载规模。 */
+    fun estimatedRemainingBytes(packId: String): Long {
+        val pack = pack(packId) ?: return 0L
+        val missing = pack.files.count { relative ->
+            val file = localFile(pack, relative)
+            !(file.isFile && file.length() > 0)
         }
-        Result.success(failed)
+        return missing * AVERAGE_FILE_BYTES
     }
 
     private fun downloadOne(pack: Pack, relative: String): Boolean {

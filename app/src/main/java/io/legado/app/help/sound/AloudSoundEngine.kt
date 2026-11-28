@@ -72,6 +72,9 @@ class AloudSoundEngine(
 
         // 本地匹配与包状态都要读磁盘，放后台，避免阻塞朗读起播
         setupJob = scope.launch {
+            // 首次切到公共目录时把旧的私有目录文件搬过去，避免重复下载
+            runCatching { AloudSoundPaths.migrateFromPrivate() }
+                .onFailure { AppLog.put("音效目录迁移失败", it) }
             runCatching { localMatcher.build() }
                 .onFailure { AppLog.put("本地音效索引构建失败", it) }
         }

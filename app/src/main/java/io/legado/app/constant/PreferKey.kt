@@ -516,6 +516,7 @@ object PreferKey {
     const val aloudSoundPromptBgm = "aloudSoundPromptBgm"
     const val aloudSoundPromptExtract = "aloudSoundPromptExtract"
     const val aloudSoundPromptPick = "aloudSoundPromptPick"
+    const val aloudSoundRootDir = "aloudSoundRootDir"
 
     const val showReadTitleAddition = "showReadTitleAddition"
     const val readBarStyleFollowPage = "readBarStyleFollowPage"

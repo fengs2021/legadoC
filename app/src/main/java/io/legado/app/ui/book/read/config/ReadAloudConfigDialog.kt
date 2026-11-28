@@ -26,6 +26,7 @@ import io.legado.app.lib.dialogs.showDecimalInputDialog
 import io.legado.app.lib.dialogs.showIntegerInputDialog
 import io.legado.app.lib.permission.Permissions
 import io.legado.app.lib.permission.PermissionsCompat
+import io.legado.app.help.sound.AloudSoundPaths
 import io.legado.app.help.sound.SoundPackManager
 import io.legado.app.lib.prefs.SwitchPreference
 import io.legado.app.lib.prefs.fragment.PreferenceFragment
@@ -98,6 +99,7 @@ class ReadAloudConfigDialog : BasePrefDialogFragment() {
             initSoundPackEntry()
             initSoundPromptEntry()
             initSoundValueEntries()
+            initSoundDirEntry()
             upSpeakEngineSummary()
             initPhoneCallPausePreference()
             initFloatOnDesktopPreference()
@@ -131,6 +133,28 @@ class ReadAloudConfigDialog : BasePrefDialogFragment() {
                     preference.summary = getString(R.string.aloud_pack_download_summary) +
                         "（本地已有 " + downloaded + " / " + total + "）"
                 }
+            }
+        }
+
+        /** 音效音乐目录：默认放公共下载目录，重装不丢；改动后立即迁移旧文件。 */
+        private fun initSoundDirEntry() {
+            val preference = findPreference<Preference>("aloudSoundRootDir") ?: return
+            lifecycleScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                val path = AloudSoundPaths.root().absolutePath
+                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                    preference.summary = getString(R.string.aloud_pack_dir_summary, path)
+                }
+            }
+            preference.setOnPreferenceChangeListener { _, _ ->
+                AloudSoundPaths.invalidate()
+                lifecycleScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                    runCatching { AloudSoundPaths.migrateFromPrivate() }
+                    val path = AloudSoundPaths.root().absolutePath
+                    kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                        preference.summary = getString(R.string.aloud_pack_dir_summary, path)
+                    }
+                }
+                true
             }
         }
 

@@ -2898,4 +2898,9 @@
     <string name="aloud_value_summary">Currently %1$d; tap to type a value</string>
     <string name="aloud_pack_dialog_failed">Cannot open this setting page</string>
     <string name="aloud_pack_state_loading">Loading…</string>
+    <string name="aloud_pack_download_started">Background download started: %1$s (safe to close this page)</string>
+    <string name="aloud_pack_dir">Sound and music folder</string>
+    <string name="aloud_pack_dir_summary">Current: %1$s. Kept in the public Download folder so reinstalling keeps it</string>
+    <string name="aloud_pack_dir_reset">Restore default folder</string>
+    <string name="aloud_pack_dir_dialog_message">Leave blank to use the default Download/yuedu/aloudSound; make sure any custom absolute path is writable</string>
 </resources>

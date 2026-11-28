@@ -21,6 +21,12 @@
         app:allowDividerBelow="false"
         app:iconSpaceReserved="false">
 
+        <io.legado.app.lib.prefs.EditTextPreference
+            android:dialogMessage="@string/aloud_pack_dir_dialog_message"
+            android:key="aloudSoundRootDir"
+            android:title="@string/aloud_pack_dir"
+            app:iconSpaceReserved="false" />
+
         <io.legado.app.lib.prefs.Preference
             android:key="aloudSoundPackDownload"
             android:summary="@string/aloud_pack_download_summary"

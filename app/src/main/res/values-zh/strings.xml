@@ -2730,4 +2730,9 @@
     <string name="aloud_value_summary">当前 %1$d，点击可直接输入</string>
     <string name="aloud_pack_dialog_failed">无法打开该设置页</string>
     <string name="aloud_pack_state_loading">读取中…</string>
+    <string name="aloud_pack_download_started">已开始后台下载：%1$s（可关闭此页，下载继续）</string>
+    <string name="aloud_pack_dir">音效音乐目录</string>
+    <string name="aloud_pack_dir_summary">当前：%1$s。放到公共下载目录，重装应用不会丢</string>
+    <string name="aloud_pack_dir_reset">恢复默认目录</string>
+    <string name="aloud_pack_dir_dialog_message">留空则使用默认目录 Download/yuedu/aloudSound；换成其他绝对路径前请确认有写权限</string>
 </resources>

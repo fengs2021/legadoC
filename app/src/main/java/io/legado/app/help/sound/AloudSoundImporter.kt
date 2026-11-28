@@ -38,10 +38,7 @@ object AloudSoundImporter {
         }.getOrNull()
     }
 
-    fun directoryFor(bookUrl: String): File {
-        val key = bookUrl.hashCode().toUInt().toString(16)
-        return File(File(splitties.init.appCtx.filesDir, "aloudSound"), key).apply { mkdirs() }
-    }
+    fun directoryFor(bookUrl: String): File = AloudSoundPaths.bookDir(bookUrl)
 
     private fun queryDisplayName(context: Context, uri: Uri): String? {
         return runCatching {
