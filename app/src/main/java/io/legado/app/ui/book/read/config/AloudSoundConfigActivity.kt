@@ -3,6 +3,7 @@ package io.legado.app.ui.book.read.config
 import android.media.MediaPlayer
 import android.os.Bundle
 import android.view.Gravity
+import android.view.View
 import android.view.ViewGroup
 import android.widget.Button
 import android.widget.EditText
@@ -10,6 +11,9 @@ import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
+import androidx.appcompat.widget.SearchView
+import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.RecyclerView
 import androidx.core.view.isVisible
 import androidx.lifecycle.lifecycleScope
 import io.legado.app.R
@@ -19,6 +23,7 @@ import io.legado.app.help.sound.AloudSoundImporter
 import io.legado.app.help.sound.AloudSoundStore
 import io.legado.app.help.sound.BgmTrack
 import io.legado.app.help.sound.BookAloudSoundConfig
+import io.legado.app.help.sound.OnlineSoundLibrary
 import io.legado.app.help.sound.SoundEffectRule
 import io.legado.app.lib.dialogs.alert
 import io.legado.app.lib.theme.accentColor
@@ -95,6 +100,7 @@ class AloudSoundConfigActivity : BaseActivity<ActivityAloudSoundConfigBinding>()
             pickingForBgm = false
             pickAudio.launch(arrayOf("audio/*"))
         }
+        binding.btnAddLibrary.setOnClickListener { showLibraryDialog() }
         binding.btnClear.setOnClickListener {
             alert(R.string.aloud_sound_clear, R.string.sure_del) {
                 yesButton {
@@ -160,9 +166,11 @@ class AloudSoundConfigActivity : BaseActivity<ActivityAloudSoundConfigBinding>()
         rules.forEachIndexed { index, rule ->
             container.addView(
                 buildRow(
-                    title = rule.name.ifBlank { File(rule.filePath).name },
+                    title = rule.name.ifBlank {
+                        if (rule.isLibrary) rule.libraryName else File(rule.filePath).name
+                    },
                     subtitle = getString(R.string.aloud_sound_rule_pattern) + "：" + rule.pattern,
-                    onPreview = { previewAudio(rule.filePath) },
+                    onPreview = { previewRule(rule) },
                     onDelete = {
                         config = config.copy(effectRules = config.effectRules.filterIndexed { i, _ -> i != index })
                         persist()
@@ -338,6 +346,188 @@ class AloudSoundConfigActivity : BaseActivity<ActivityAloudSoundConfigBinding>()
         previewPlayer = null
     }
 
+    private fun previewRule(rule: SoundEffectRule) {
+        if (rule.isLibrary) {
+            val url = OnlineSoundLibrary.remoteUrl(rule.libraryName)
+            if (url == null) {
+                toastOnUi(R.string.aloud_sound_import_none)
+                return
+            }
+            previewUrl(url)
+            return
+        }
+        previewAudio(rule.filePath)
+    }
+
+    private fun previewUrl(url: String) {
+        releasePreview()
+        lifecycleScope.launch {
+            val prepared = withContext(IO) {
+                runCatching {
+                    MediaPlayer().apply {
+                        setDataSource(url)
+                        prepare()
+                    }
+                }.getOrNull()
+            }
+            if (prepared == null) {
+                toastOnUi(R.string.aloud_sound_import_none)
+                return@launch
+            }
+            previewPlayer = prepared.apply {
+                setOnCompletionListener { releasePreview() }
+                start()
+            }
+        }
+    }
+
+    /**
+     * 在线音效库：搜索内置索引，条目可直接试听（流式），点「添加」写进本书规则。
+     * 规则只存库内文件名，音频在朗读挂载时按需下载缓存。
+     */
+    private fun showLibraryDialog() {
+        if (!OnlineSoundLibrary.isAvailable) {
+            toastOnUi(R.string.aloud_sound_import_none)
+            return
+        }
+        var entries = OnlineSoundLibrary.search(null, LIBRARY_PAGE_LIMIT)
+        val listAdapter = object : RecyclerView.Adapter<LibraryHolder>() {
+            override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): LibraryHolder {
+                val row = LinearLayout(this@AloudSoundConfigActivity).apply {
+                    orientation = LinearLayout.HORIZONTAL
+                    gravity = Gravity.CENTER_VERTICAL
+                    minimumHeight = 52.dpToPx()
+                }
+                val nameView = TextView(this@AloudSoundConfigActivity).apply {
+                    textSize = 15f
+                    includeFontPadding = false
+                    setTextColor(primaryTextColor)
+                    maxLines = 1
+                    ellipsize = android.text.TextUtils.TruncateAt.END
+                }
+                row.addView(
+                    nameView,
+                    LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+                )
+                val previewButton = Button(this@AloudSoundConfigActivity).apply {
+                    text = getString(R.string.aloud_sound_preview)
+                    textSize = 13f
+                    setTextColor(accentColor)
+                    minWidth = 0
+                    minimumWidth = 0
+                    setPadding(12.dpToPx(), 0, 12.dpToPx(), 0)
+                }
+                row.addView(
+                    previewButton,
+                    LinearLayout.LayoutParams(
+                        ViewGroup.LayoutParams.WRAP_CONTENT,
+                        ViewGroup.LayoutParams.WRAP_CONTENT
+                    )
+                )
+                val addButton = Button(this@AloudSoundConfigActivity).apply {
+                    textSize = 13f
+                    setTextColor(accentColor)
+                    minWidth = 0
+                    minimumWidth = 0
+                    setPadding(12.dpToPx(), 0, 12.dpToPx(), 0)
+                }
+                row.addView(
+                    addButton,
+                    LinearLayout.LayoutParams(
+                        ViewGroup.LayoutParams.WRAP_CONTENT,
+                        ViewGroup.LayoutParams.WRAP_CONTENT
+                    )
+                )
+                return LibraryHolder(row, nameView, previewButton, addButton)
+            }
+
+            override fun getItemCount(): Int = entries.size
+
+            override fun onBindViewHolder(holder: LibraryHolder, position: Int) {
+                val entry = entries[position]
+                holder.name.text = entry.displayName
+                val added = config.effectRules.any { it.libraryName == entry.fileName }
+                holder.preview.setOnClickListener {
+                    OnlineSoundLibrary.remoteUrl(entry.fileName)?.let { previewUrl(it) }
+                }
+                holder.add.text = getString(
+                    if (added) R.string.aloud_sound_library_added else R.string.aloud_sound_library_add
+                )
+                holder.add.isEnabled = !added
+                holder.add.setOnClickListener {
+                    if (config.effectRules.any { it.libraryName == entry.fileName }) return@setOnClickListener
+                    val rule = SoundEffectRule(
+                        id = UUID.randomUUID().toString(),
+                        name = entry.displayName,
+                        pattern = entry.keywords,
+                        isRegex = false,
+                        filePath = "",
+                        libraryName = entry.fileName,
+                        volume = 1f,
+                        cooldownMs = 1500L
+                    )
+                    config = config.copy(effectRules = config.effectRules + rule)
+                    persist()
+                    render()
+                    notifyItemChanged(position)
+                }
+            }
+        }
+        val recyclerView = RecyclerView(this).apply {
+            layoutManager = LinearLayoutManager(this@AloudSoundConfigActivity)
+            adapter = listAdapter
+            overScrollMode = View.OVER_SCROLL_IF_CONTENT_SCROLLS
+            layoutParams = LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                360.dpToPx()
+            )
+        }
+        val searchView = SearchView(this).apply {
+            queryHint = getString(R.string.aloud_sound_library_search)
+            setIconifiedByDefault(false)
+            isIconified = false
+            isSubmitButtonEnabled = false
+            setOnQueryTextListener(object : SearchView.OnQueryTextListener {
+                override fun onQueryTextSubmit(query: String?): Boolean = true
+                override fun onQueryTextChange(newText: String?): Boolean {
+                    entries = OnlineSoundLibrary.search(newText, LIBRARY_PAGE_LIMIT)
+                    listAdapter.notifyDataSetChanged()
+                    return true
+                }
+            })
+        }
+        val container = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(14.dpToPx(), 14.dpToPx(), 14.dpToPx(), 12.dpToPx())
+            addView(
+                searchView,
+                LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    42.dpToPx()
+                )
+            )
+            addView(
+                recyclerView,
+                LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    360.dpToPx()
+                ).apply { topMargin = 8.dpToPx() }
+            )
+        }
+        AlertDialog.Builder(this)
+            .setTitle(getString(R.string.aloud_sound_library_title))
+            .setView(container)
+            .setNegativeButton(R.string.cancel, null)
+            .show()
+    }
+
+    private class LibraryHolder(
+        root: LinearLayout,
+        val name: TextView,
+        val preview: Button,
+        val add: Button
+    ) : RecyclerView.ViewHolder(root)
+
     private fun File.toBgmTrack(): BgmTrack = BgmTrack(
         id = UUID.randomUUID().toString(),
         name = name,
@@ -355,4 +545,9 @@ class AloudSoundConfigActivity : BaseActivity<ActivityAloudSoundConfigBinding>()
         volume = 1f,
         cooldownMs = 1500L
     )
+
+    private companion object {
+        /** 音效库单页最多列出多少条：937 条全量进 RecyclerView 也没问题，但搜索无关键词时少些更利落 */
+        const val LIBRARY_PAGE_LIMIT = 300
+    }
 }

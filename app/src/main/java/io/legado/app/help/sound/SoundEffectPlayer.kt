@@ -11,13 +11,15 @@ import java.io.File
  * 音效都是短音频，用 [SoundPool] 预加载后零延迟触发，可多路并发；
  * 与 TTS 播放器各自持有独立音频通路，由系统混音，不需要额外混流。
  *
- * 一个实例对应一次朗读会话，由 [AloudSoundEngine] 创建和释放。
+ * 在线音效库条目在 [AloudSoundEngine] 下载完成后通过 [attachResolved] 增量接入，
+ * 未就绪的规则只是暂时不响，不影响朗读本身。
  */
 class SoundEffectPlayer {
 
-    private val loaded = HashMap<String, Int>()       // filePath -> soundId
-    private val pending = HashMap<Int, String>()      // sampleId -> filePath（加载中）
-    private val lastPlayAt = HashMap<String, Long>()  // ruleId -> 上次触发时间
+    private val soundIds = HashMap<String, Int>()      // ruleId -> soundId
+    private val pending = HashMap<Int, String>()       // sampleId -> ruleId
+    private val loadedPaths = HashMap<String, String>() // ruleId -> filePath
+    private val lastPlayAt = HashMap<String, Long>()   // ruleId -> 上次触发时间
     private var compiledRules: List<CompiledRule> = emptyList()
     private var enabled = false
     private var globalVolume = 1f
@@ -33,14 +35,12 @@ class SoundEffectPlayer {
             )
             .build()
             .apply {
-                // SoundPool 只在异步加载完成后才拿得到可用的 sampleId：
-                // 加载期间用 pending 记录 sampleId -> 路径，成功后再转进 loaded。
                 setOnLoadCompleteListener { _, sampleId, status ->
-                    val filePath = synchronized(pending) { pending.remove(sampleId) }
-                    if (status == 0 && filePath != null) {
-                        loaded[filePath] = sampleId
+                    val ruleId = synchronized(pending) { pending.remove(sampleId) }
+                    if (status == 0 && ruleId != null) {
+                        soundIds[ruleId] = sampleId
                     } else if (status != 0) {
-                        AppLog.put("音效加载失败(status=$status)：$filePath")
+                        AppLog.put("音效加载失败(status=$status)：$ruleId")
                     }
                 }
             }
@@ -54,13 +54,45 @@ class SoundEffectPlayer {
                 .onFailure { AppLog.put("音效规则无效：${rule.name}", it) }
                 .getOrNull()
         }
-        loaded.entries.removeAll { entry ->
-            val unused = compiledRules.none { it.rule.filePath == entry.key }
-            if (unused) soundPool.unload(entry.value)
-            unused
+        // 回收不再需要的样本
+        val alive = compiledRules.map { it.rule.id }.toSet()
+        soundIds.keys.filter { it !in alive }.forEach { ruleId ->
+            soundIds.remove(ruleId)?.let { runCatching { soundPool.unload(it) } }
+            loadedPaths.remove(ruleId)
         }
-        if (enabled) {
-            compiledRules.forEach { preload(it.rule.filePath) }
+        if (!enabled) return
+        compiledRules.forEach { prepared ->
+            val rule = prepared.rule
+            if (rule.isLibrary) {
+                // 已缓存的库条目直接加载；未缓存的等下载完成回调 attachResolved
+                OnlineSoundLibrary.cachedFile(rule.libraryName)?.let { load(rule.id, it) }
+            } else {
+                load(rule.id, File(rule.filePath))
+            }
+        }
+    }
+
+    /** 在线音效库条目下载完成后的增量接入。 */
+    fun attachResolved(ruleId: String, localFile: File) {
+        if (!enabled) return
+        if (compiledRules.none { it.rule.id == ruleId }) return
+        load(ruleId, localFile)
+    }
+
+    private fun load(ruleId: String, file: File) {
+        if (soundIds.containsKey(ruleId)) return
+        if (loadedPaths[ruleId] == file.absolutePath) return
+        if (synchronized(pending) { pending.containsValue(ruleId) }) return
+        if (!file.isFile) {
+            AppLog.put("音效文件不存在：${file.absolutePath}")
+            return
+        }
+        runCatching {
+            val sampleId = soundPool.load(file.absolutePath, 1)
+            synchronized(pending) { pending[sampleId] = ruleId }
+            loadedPaths[ruleId] = file.absolutePath
+        }.onFailure {
+            AppLog.put("音效加载失败：${file.absolutePath}", it)
         }
     }
 
@@ -76,26 +108,6 @@ class SoundEffectPlayer {
         return { text -> keywords.any { text.contains(it, ignoreCase = true) } }
     }
 
-    private fun preload(filePath: String) {
-        if (loaded.containsKey(filePath)) return
-        if (synchronized(pending) { pending.containsValue(filePath) }) return
-        if (filePath.startsWith("http", true)) {
-            // 网络音效需要先落地，未就绪时跳过，不影响朗读
-            return
-        }
-        val file = File(filePath)
-        if (!file.isFile) {
-            AppLog.put("音效文件不存在：$filePath")
-            return
-        }
-        runCatching {
-            val sampleId = soundPool.load(filePath, 1)
-            synchronized(pending) { pending[sampleId] = filePath }
-        }.onFailure {
-            AppLog.put("音效加载失败：$filePath", it)
-        }
-    }
-
     /**
      * 朗读一段文本时调用：命中规则的触发音效。
      *
@@ -104,12 +116,12 @@ class SoundEffectPlayer {
     fun onText(text: String?) {
         if (!enabled || text.isNullOrBlank()) return
         val now = System.currentTimeMillis()
-        compiledRules.forEach { compiled ->
-            val rule = compiled.rule
-            if (!compiled.matches(text)) return@forEach
+        compiledRules.forEach { prepared ->
+            val rule = prepared.rule
+            if (!prepared.matches(text)) return@forEach
             val last = lastPlayAt[rule.id] ?: 0L
             if (now - last < rule.cooldownMs) return@forEach
-            val soundId = loaded[rule.filePath] ?: return@forEach
+            val soundId = soundIds[rule.id] ?: return@forEach
             val volume = (rule.volume * globalVolume).coerceIn(0f, 1f)
             if (volume <= 0f) return@forEach
             runCatching {
@@ -123,8 +135,9 @@ class SoundEffectPlayer {
 
     fun release() {
         runCatching { soundPool.release() }
-        loaded.clear()
+        soundIds.clear()
         synchronized(pending) { pending.clear() }
+        loadedPaths.clear()
         lastPlayAt.clear()
         compiledRules = emptyList()
         enabled = false

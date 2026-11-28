@@ -4,6 +4,9 @@ import android.content.Context
 import io.legado.app.constant.AppLog
 import io.legado.app.help.config.AppConfig
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
 
 /**
  * AI 朗读音效与背景音乐的统一入口。
@@ -26,6 +29,7 @@ class AloudSoundEngine(
     private var attached = false
     private var lastChapterIndex = Int.MIN_VALUE
     private var pendingUnduck = false
+    private var libraryJob: Job? = null
 
     /** 朗读开始时挂载：读取本书配置并起播背景音乐。 */
     fun attach(bookUrl: String?, chapterIndex: Int) {
@@ -41,6 +45,7 @@ class AloudSoundEngine(
             rules = if (effectEnabled) config.effectRules else emptyList(),
             volume = AppConfig.aloudSoundEffectVolume / 100f
         )
+        prefetchLibrary(config.effectRules)
         val bgmEnabled = AppConfig.aloudBgmEnabled && config.hasBgm
         bgm.setTracks(
             newTracks = if (bgmEnabled) config.bgmTracks else emptyList(),
@@ -49,6 +54,24 @@ class AloudSoundEngine(
         )
         if (bgmEnabled) {
             bgm.startForChapter(chapterIndex)
+        }
+    }
+
+    /**
+     * 在线音效库条目按需下载：已经在缓存里的直接由播放器加载，
+     * 其余在这里串行下载，完成一个接入一个，避免同时打满网络。
+     */
+    private fun prefetchLibrary(rules: List<SoundEffectRule>) {
+        libraryJob?.cancel()
+        val libraryRules = rules.filter { it.isUsable && it.isLibrary }
+        if (libraryRules.isEmpty()) return
+        libraryJob = scope.launch {
+            libraryRules.forEach { rule ->
+                if (!isActive) return@launch
+                if (OnlineSoundLibrary.cachedFile(rule.libraryName) != null) return@forEach
+                val file = OnlineSoundLibrary.download(rule.libraryName) ?: return@forEach
+                soundEffect.attachResolved(rule.id, file)
+            }
         }
     }
 
@@ -92,6 +115,8 @@ class AloudSoundEngine(
         if (!attached) return
         attached = false
         pendingUnduck = false
+        libraryJob?.cancel()
+        libraryJob = null
         bookUrl = null
         lastChapterIndex = Int.MIN_VALUE
         runCatching { bgm.stop() }

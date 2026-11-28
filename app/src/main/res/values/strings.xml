@@ -2860,4 +2860,11 @@
     <string name="aloud_sound_effect_volume_summary_plain">Percentage volume; final volume also multiplies each rule volume</string>
     <string name="aloud_bgm_volume_summary_plain">Percentage volume; final volume also multiplies each track volume</string>
     <string name="aloud_bgm_duck_summary_plain">Lower the music while speech plays and restore it between segments</string>
+    <string name="aloud_sound_library_title">Online sound library</string>
+    <string name="aloud_sound_library_summary">%1$d built-in Chinese sound effects; added ones download on demand</string>
+    <string name="aloud_sound_library_search">Search sound names; separate keywords with spaces</string>
+    <string name="aloud_sound_library_add">Add</string>
+    <string name="aloud_sound_library_added">Added</string>
+    <string name="aloud_sound_library_empty">No matching sounds</string>
+    <string name="aloud_sound_library_from">Add from online library</string>
 </resources>

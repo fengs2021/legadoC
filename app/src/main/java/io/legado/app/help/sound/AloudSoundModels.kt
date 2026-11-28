@@ -18,9 +18,12 @@ data class SoundEffectRule(
     val pattern: String = "",
     @SerializedName("isRegex")
     val isRegex: Boolean = false,
-    /** 本地绝对路径或 http(s) 地址 */
+    /** 本地绝对路径或 http(s) 地址；在线音效库条目为空 */
     @SerializedName("filePath")
     val filePath: String = "",
+    /** 在线音效库内文件名；非空表示来自内置音效库，播放前按需下载缓存 */
+    @SerializedName("libraryName")
+    val libraryName: String = "",
     /** 0f..1f，最终再乘全局音效音量 */
     @SerializedName("volume")
     val volume: Float = 1f,
@@ -31,9 +34,13 @@ data class SoundEffectRule(
     val enabled: Boolean = true
 ) {
 
-    /** 规则是否可用：必须有匹配式和音频来源 */
+    val isLibrary: Boolean
+        get() = libraryName.isNotBlank()
+
+    /** 规则是否可用：必须有匹配式，并且有本地文件或在线库条目 */
     val isUsable: Boolean
-        get() = enabled && pattern.isNotBlank() && filePath.isNotBlank()
+        get() = enabled && pattern.isNotBlank()
+            && (filePath.isNotBlank() || libraryName.isNotBlank())
 }
 
 /**

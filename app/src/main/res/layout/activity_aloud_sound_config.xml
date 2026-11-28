@@ -77,6 +77,14 @@
                 android:orientation="vertical" />
 
             <Button
+                android:id="@+id/btn_add_library"
+                style="?android:attr/buttonBarButtonStyle"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:text="@string/aloud_sound_library_from" />
+
+            <Button
                 android:id="@+id/btn_add_effect"
                 style="?android:attr/buttonBarButtonStyle"
                 android:layout_width="match_parent"

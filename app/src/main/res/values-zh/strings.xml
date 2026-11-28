@@ -2692,4 +2692,11 @@
     <string name="aloud_sound_effect_volume_summary_plain">百分比音量，实际音量再乘每条规则自身音量</string>
     <string name="aloud_bgm_volume_summary_plain">百分比音量，实际音量再乘每首曲目自身音量</string>
     <string name="aloud_bgm_duck_summary_plain">语音播放时把音乐压低，段间空隙恢复</string>
+    <string name="aloud_sound_library_title">在线音效库</string>
+    <string name="aloud_sound_library_summary">内置 %1$d 个中文音效，选中即加入本书，播放时按需下载</string>
+    <string name="aloud_sound_library_search">搜索音效名，空格分隔多个关键词</string>
+    <string name="aloud_sound_library_add">添加</string>
+    <string name="aloud_sound_library_added">已添加</string>
+    <string name="aloud_sound_library_empty">没有匹配的音效</string>
+    <string name="aloud_sound_library_from">从在线音效库添加</string>
 </resources>
