@@ -2727,4 +2727,7 @@
     <string name="aloud_prompt_summary">管理 BGM 选曲、关键字提取、音效选择三类提示词</string>
     <string name="aloud_pack_thinking">思考模式</string>
     <string name="aloud_pack_thinking_summary">推理型模型（DeepSeek-R1、QwQ、Xing4.0 等）会先思考再回答，慢且费 token；关闭后直接出结果，实测快十倍。BGM 选曲与音效分析同时生效</string>
+    <string name="aloud_value_summary">当前 %1$d，点击可直接输入</string>
+    <string name="aloud_pack_dialog_failed">无法打开该设置页</string>
+    <string name="aloud_pack_state_loading">读取中…</string>
 </resources>

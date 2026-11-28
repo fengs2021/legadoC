@@ -10,6 +10,8 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.LinearLayout
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.launch
 import androidx.preference.ListPreference
 import androidx.preference.Preference
 import io.legado.app.R
@@ -31,6 +33,9 @@ import io.legado.app.lib.theme.primaryColor
 import io.legado.app.model.ReadAloud
 import io.legado.app.service.BaseReadAloudService
 import io.legado.app.utils.StringUtils
+import io.legado.app.utils.getPrefInt
+import io.legado.app.utils.putPrefInt
+import io.legado.app.utils.toastOnUi
 import io.legado.app.utils.postEvent
 import io.legado.app.utils.setEdgeEffectColor
 import io.legado.app.utils.setLayout
@@ -92,6 +97,7 @@ class ReadAloudConfigDialog : BasePrefDialogFragment() {
             initReadAloudLogEntry()
             initSoundPackEntry()
             initSoundPromptEntry()
+            initSoundValueEntries()
             upSpeakEngineSummary()
             initPhoneCallPausePreference()
             initFloatOnDesktopPreference()
@@ -106,14 +112,53 @@ class ReadAloudConfigDialog : BasePrefDialogFragment() {
         /** 下载音效和音乐：整包下载音效库与配乐库，之后由 AI 在朗读时匹配。 */
         private fun initSoundPackEntry() {
             val preference = findPreference<Preference>("aloudSoundPackDownload") ?: return
-            val downloaded = SoundPackManager.states().sumOf { it.downloaded }
-            val total = SoundPackManager.states().sumOf { it.total }
-            preference.summary = getString(R.string.aloud_pack_download_summary) +
-                "（本地已有 $downloaded / $total）"
+            // 状态统计要遍历上万个文件，不能放在主线程（否则点击表现为「没反应」）
+            preference.summary = getString(R.string.aloud_pack_download_summary)
             preference.setOnPreferenceClickListener {
                 val activity = activity as? androidx.fragment.app.FragmentActivity
                 if (activity != null) {
                     SoundPackDialog.show(activity)
+                } else {
+                    context?.toastOnUi(R.string.aloud_pack_dialog_failed)
+                }
+                true
+            }
+            lifecycleScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                val states = runCatching { SoundPackManager.states() }.getOrDefault(emptyList())
+                val downloaded = states.sumOf { it.downloaded }
+                val total = states.sumOf { it.total }
+                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                    preference.summary = getString(R.string.aloud_pack_download_summary) +
+                        "（本地已有 " + downloaded + " / " + total + "）"
+                }
+            }
+        }
+
+        /** 音量与分析字数是数值项：点击直接弹输入框，避免只有滑块、看不出点没点上。 */
+        private fun initSoundValueEntries() {
+            bindIntPreference("aloudSoundEffectVolume", R.string.aloud_sound_effect_volume, 0..100, 80)
+            bindIntPreference("aloudBgmVolume", R.string.aloud_bgm_volume, 0..100, 30)
+            bindIntPreference("aloudBgmDuckRatio", R.string.aloud_bgm_duck, 0..100, 35)
+            bindIntPreference(
+                "aloudSoundAnalysisChars",
+                R.string.aloud_pack_analysis_chars,
+                120..2000,
+                480
+            )
+        }
+
+        private fun bindIntPreference(key: String, titleRes: Int, range: IntRange, default: Int) {
+            val preference = findPreference<Preference>(key) ?: return
+            preference.setOnPreferenceClickListener {
+                val value = getPrefInt(key, default).coerceIn(range.first, range.last)
+                showIntegerInputDialog(
+                    title = titleRes,
+                    currentValue = value,
+                    validRange = range,
+                    defaultValue = default
+                ) { confirmed ->
+                    putPrefInt(key, confirmed)
+                    preference.summary = getString(R.string.aloud_value_summary, confirmed)
                 }
                 true
             }

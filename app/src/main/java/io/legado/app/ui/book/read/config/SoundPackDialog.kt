@@ -19,7 +19,9 @@ import io.legado.app.lib.theme.surface.SurfaceStyles
 import io.legado.app.utils.SurfaceBackdrop
 import io.legado.app.utils.dpToPx
 import io.legado.app.utils.toastOnUi
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.util.concurrent.atomic.AtomicBoolean
 
 /**
@@ -40,15 +42,15 @@ object SoundPackDialog {
             SurfaceBackdrop.installStatic(this, SurfaceStyles.dialog(activity))
         }
         val downloading = AtomicBoolean(false)
+        // 状态统计要遍历上万个文件，必须放后台：先渲染可点的行，再回填进度
         packs.forEach { pack ->
-            val state = SoundPackManager.state(pack.id)
             val row = LinearLayout(activity).apply {
                 orientation = LinearLayout.HORIZONTAL
                 gravity = Gravity.CENTER_VERTICAL
                 minimumHeight = 56.dpToPx()
             }
             val checkBox = CheckBox(activity).apply {
-                isChecked = state?.finished != true
+                isChecked = true
             }
             row.addView(checkBox)
             val texts = LinearLayout(activity).apply { orientation = LinearLayout.VERTICAL }
@@ -62,11 +64,11 @@ object SoundPackDialog {
                 textSize = 12f
                 includeFontPadding = false
                 setTextColor(activity.secondaryTextColor)
-                text = renderState(activity, state?.downloaded ?: 0, pack.total)
+                text = activity.getString(R.string.aloud_pack_state_loading)
             }
             val progress = ProgressBar(activity, null, android.R.attr.progressBarStyleHorizontal).apply {
                 max = 100
-                progress = state?.progressPercent ?: 0
+                progress = 0
                 layoutParams = LinearLayout.LayoutParams(
                     140.dpToPx(),
                     ViewGroup.LayoutParams.WRAP_CONTENT
@@ -87,6 +89,16 @@ object SoundPackDialog {
                 )
             )
             rows += Row(pack.id, pack.name, checkBox, status, progress)
+        }
+        activity.lifecycleScope.launch(Dispatchers.IO) {
+            rows.forEach { row ->
+                val state = runCatching { SoundPackManager.state(row.packId) }.getOrNull()
+                withContext(Dispatchers.Main) {
+                    row.checkBox.isChecked = state?.finished != true
+                    row.status.text = renderState(activity, state?.downloaded ?: 0, state?.total ?: 0)
+                    row.progress.progress = state?.progressPercent ?: 0
+                }
+            }
         }
         val dialog = AlertDialog.Builder(activity)
             .setTitle(R.string.aloud_pack_download_title)

@@ -2895,4 +2895,7 @@
     <string name="aloud_prompt_summary">Manage BGM, keyword extraction and sound picking prompts</string>
     <string name="aloud_pack_thinking">Thinking mode</string>
     <string name="aloud_pack_thinking_summary">Reasoning models (DeepSeek-R1, QwQ, Xing4.0 and alike) think before answering: slower and pricier. Off means answer directly, roughly ten times faster. Applies to both BGM picking and sound analysis</string>
+    <string name="aloud_value_summary">Currently %1$d; tap to type a value</string>
+    <string name="aloud_pack_dialog_failed">Cannot open this setting page</string>
+    <string name="aloud_pack_state_loading">Loading…</string>
 </resources>
